@@ -32,15 +32,13 @@ The site includes a web app manifest and a service worker for the app shell. OCR
 
 ### Search
 
-The app loads the Pokémon name list from PokeAPI and uses it only to identify the Pokémon. Once a match is found, the app generates a live screenshot URL for the official Pokémon.com page.
+The app loads the Pokémon name list from PokeAPI and uses it only to identify the Pokémon. Once a match is found, the app attempts to load the official Pokémon.com page inside an iframe:
 
-### Pokémon.com viewer
+`https://www.pokemon.com/us/pokedex/<pokemon-name>`
 
-A normal GitHub Pages site cannot iframe Pokémon.com because browsers enforce Pokémon.com's anti-framing policy. Instead, this version uses Thum.io to render the official page in a headless browser and return the result as an image. The image is then displayed directly inside the Pokédex.
+### Important embedding limitation
 
-Thum.io documents this as a URL-based screenshot API that can be used directly from a webpage. Its current free tier includes 1,000 screenshot impressions per month.
-
-The screenshot is visual only, so it is not interactive. The **Open on Pokémon.com** button remains available for the full interactive page.
+Pokémon.com currently sends `X-Frame-Options: SAMEORIGIN`, which means browsers can prevent a GitHub Pages site from embedding the page. The app therefore attempts the iframe first and provides a fallback button to open the official page directly if the browser blocks it. This restriction is imposed by Pokémon.com and cannot be bypassed by JavaScript in a normal GitHub Pages site.
 
 ### Camera OCR
 
@@ -79,7 +77,3 @@ Possible additions:
 - Add a quick Pokémon type chart.
 - Cache the full Pokémon name list locally.
 - Add home-screen icons for iOS/Android.
-
-## Screenshot note
-
-The Pokémon.com screenshot is generated on demand by Thum.io. If a brand-new screenshot is still rendering, refreshing the Pokémon search can cause the cached screenshot to appear once it is ready.

@@ -111,19 +111,17 @@
     .embed-shell {
       position: relative; margin-top: 14px; border: 1px solid var(--border);
       border-radius: 15px; overflow: hidden; background: #f4f4f5;
-      min-height: 420px;
+      min-height: 620px;
     }
-    .pokemon-screenshot {
-      display: block; width: 100%; height: auto; min-height: 360px;
-      background: #fff; object-fit: cover; object-position: top center;
-      transition: opacity .15s ease;
+    #pokemonFrame {
+      display: block; width: 100%; height: min(78vh, 820px); min-height: 620px;
+      border: 0; background: #fff;
     }
-    .screenshot-loading {
-      position: absolute; z-index: 2; inset: 0; min-height: 360px;
+    .embed-loading {
+      position: absolute; z-index: 2; inset: 0; min-height: 220px;
       display: flex; align-items: center; justify-content: center; gap: 10px;
       background: #fff; color: var(--muted); font-size: 14px;
     }
-    .screenshot-loading[hidden] { display: none; }
     .spinner {
       width: 20px; height: 20px; border-radius: 50%;
       border: 3px solid #e4e4e7; border-top-color: var(--red);
@@ -139,9 +137,8 @@
     .embed-fallback strong { font-size: 17px; }
     .embed-fallback p { color: var(--muted); font-size: 14px; line-height: 1.5; max-width: 360px; }
     @media (max-width: 420px) {
-      .embed-shell { min-height: 360px; }
-      .pokemon-screenshot { min-height: 360px; }
-      .screenshot-loading { min-height: 360px; }
+      .embed-shell { min-height: 560px; }
+      #pokemonFrame { min-height: 560px; height: 78vh; }
     }
     .recent { margin-top: 18px; }
     .recent-title { font-size: 13px; font-weight: 700; color: #52525b; margin: 0 2px 8px; }
@@ -237,17 +234,21 @@
         <div id="pokemonMeta" class="pokemon-meta"></div>
 
         <div class="embed-shell">
-          <div id="screenshotLoading" class="screenshot-loading">
+          <div id="embedLoading" class="embed-loading">
             <div class="spinner" aria-hidden="true"></div>
-            <span>Rendering the Pokémon.com page…</span>
+            <span>Loading Pokémon.com…</span>
           </div>
-          <img id="pokemonScreenshot" class="pokemon-screenshot"
-               alt="Screenshot of the official Pokémon.com Pokédex page" loading="eager">
+          <iframe
+            id="pokemonFrame"
+            title="Official Pokémon.com Pokédex"
+            loading="lazy"
+            referrerpolicy="strict-origin-when-cross-origin"
+            allow="fullscreen"
+          ></iframe>
           <div id="embedFallback" class="embed-fallback" hidden>
-            <strong>Screenshot service could not load the page</strong>
-            <p>The screenshot is generated from the live Pokémon.com page. You can still open the official interactive page below.</p>
-            <button id="openButton" class="open-btn" type="button">Open on Pokémon.com ↗</button>
-            <a id="debugScreenshotLink" class="debug-link" href="#" target="_blank" rel="noopener">Open the screenshot directly ↗</a>
+            <strong>Pokémon.com doesn't allow this page to be embedded here.</strong>
+            <p>Your browser is blocking the official page from appearing inside this Pokédex. The page itself is still available.</p>
+            <button id="openButton" class="open-btn" type="button">Open Pokémon.com ↗</button>
           </div>
         </div>
       </div>
