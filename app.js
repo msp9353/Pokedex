@@ -8,6 +8,7 @@
     number:$('number'), heroName:$('heroName'), genus:$('genus'), art:$('art'), types:$('types'), description:$('description'),
     height:$('height'), weight:$('weight'), category:$('category'), generation:$('generation'), abilities:$('abilities'), stats:$('stats'),
     weaknesses:$('weaknesses'), evolution:$('evolution'), prev:$('prevButton'), next:$('nextButton'), official:$('officialButton'),
+    cameraBtn:$('cameraBtn'), cameraInput:$('cameraInput')
   };
   let list = [], selected = null, loadingList = null;
 
@@ -39,8 +40,6 @@
     if(!raw)return null;
     const s=slug(raw),n=normalize(raw);
 
-    // Fast path: ask PokéAPI directly. This avoids requiring the large
-    // 1,000+ Pokémon list to load before a normal search can work.
     if(!/^\d{1,4}$/.test(raw)){
       try{
         const direct=await json(`${API}/pokemon/${encodeURIComponent(s)}`);
@@ -48,7 +47,6 @@
       }catch{}
     }
 
-    // Fallback for numbers, OCR misspellings, and alternate spellings.
     const data=await loadList();
     if(!data.length) return null;
     if(/^\d{1,4}$/.test(raw)){
@@ -132,7 +130,6 @@
       }
     });
 
-    // Always start at the beginning so the first Pokémon is visible.
     els.evolution.scrollLeft=0;
   }
 
@@ -153,9 +150,45 @@
   async function navigate(id){if(id<1||id>1025)return;try{const p=await json(`${API}/pokemon/${id}`);await showPokemon({name:p.name,id:p.id,normalized:normalize(p.name)})}catch(e){setStatus(`Could not load Pokémon #${id}.`,'error')}}
   async function search(v,source='typed'){const raw=String(v||'').trim();if(!raw){setStatus('Enter a Pokémon name or number.','error');return}setStatus('Finding Pokémon…');try{const p=await findPokemon(raw);if(!p)throw Error();await showPokemon(p,source)}catch{setStatus(`I couldn't match “${raw}” to a Pokémon.`,'error')}}
   
+  els.cameraBtn.addEventListener('click', () => els.cameraInput.click());
+  
+  els.cameraInput.addEventListener('change', async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    setStatus('Scanning image for text...', 'success');
+    els.pokedex.classList.add('show');
+    els.entry.hidden = true;
+    els.loading.hidden = false;
+
+    try {
+      const worker = await Tesseract.createWorker("eng");
+      const { data: { text } } = await worker.recognize(file);
+      await worker.terminate();
+
+      const cleanedText = text.replace(/[^a-zA-Z0-9\s-]/g, '').trim();
+      const words = cleanedText.split(/[\s\n]+/).sort((a,b) => b.length - a.length);
+      const query = words[0]; 
+
+      if (query && query.length > 2) {
+        els.search.value = query;
+        search(query, 'ocr');
+      } else {
+        setStatus('No valid Pokémon name found in image.', 'error');
+        els.loading.hidden = true;
+      }
+    } catch (err) {
+      console.error(err);
+      setStatus('Failed to scan image. Please try again.', 'error');
+      els.loading.hidden = true;
+    }
+    
+    els.cameraInput.value = ''; 
+  });
+
   els.form.addEventListener('submit', e => {
     e.preventDefault();
-    els.search.blur(); // This removes focus from the input, hiding the mobile keyboard
+    els.search.blur(); 
     search(els.search.value);
   });
 
