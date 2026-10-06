@@ -8,7 +8,6 @@
     number:$('number'), heroName:$('heroName'), genus:$('genus'), art:$('art'), types:$('types'), description:$('description'),
     height:$('height'), weight:$('weight'), category:$('category'), generation:$('generation'), abilities:$('abilities'), stats:$('stats'),
     weaknesses:$('weaknesses'), evolution:$('evolution'), prev:$('prevButton'), next:$('nextButton'), official:$('officialButton'),
-    recent:$('recentSection'), recentList:$('recentList')
   };
   let list = [], selected = null, loadingList = null;
 
@@ -143,7 +142,7 @@
       const data=await loadEntry(p),{pokemon,species,chain,typeDetails}=data;
       els.number.textContent=`#${String(pokemon.id).padStart(4,'0')}`;els.heroName.textContent=pretty(pokemon.name);els.genus.textContent=englishGenus(species);els.art.src=pokemon.sprites.other?.['official-artwork']?.front_default||pokemon.sprites.front_default;els.art.alt=pretty(pokemon.name);renderTypes(pokemon.types);els.description.textContent=englishFlavor(species);els.height.textContent=`${(pokemon.height/10).toFixed(1)} m`;els.weight.textContent=`${(pokemon.weight/10).toFixed(1)} kg`;els.category.textContent=englishGenus(species).replace(/ Pokémon$/i,'')||'Pokémon';els.generation.textContent=pretty(species.generation.name.replace('generation-','Gen '));
       els.abilities.innerHTML='';(pokemon.abilities||[]).forEach(a=>{const name=a?.ability?.name;if(!name)return;const x=document.createElement('div');x.className='ability';x.innerHTML=`${pretty(name)}${a.is_hidden?' <small>(Hidden)</small>':''}`;els.abilities.appendChild(x)});renderStats(pokemon.stats);renderWeaknesses(typeDetails);renderEvolution(chain);
-      const id=pokemon.id;els.prev.disabled=id<=1;els.next.disabled=id>=1025;els.prev.onclick=()=>navigate(id-1);els.next.onclick=()=>navigate(id+1);els.official.onclick=()=>window.open(officialUrl(pokemon.name),'_blank','noopener');els.entry.hidden=false;els.loading.hidden=true;els.search.value=pretty(pokemon.name);setStatus('Pokédex entry loaded.','success');saveRecent(p);window.scrollTo({top:0,behavior:'smooth'});
+      const id=pokemon.id;els.prev.disabled=id<=1;els.next.disabled=id>=1025;els.prev.onclick=()=>navigate(id-1);els.next.onclick=()=>navigate(id+1);els.official.onclick=()=>window.open(officialUrl(pokemon.name),'_blank','noopener');els.entry.hidden=false;els.loading.hidden=true;els.search.value=pretty(pokemon.name);setStatus('Pokédex entry loaded.','success');window.scrollTo({top:0,behavior:'smooth'});
     }catch(e){
       console.error('Pokédex load failed:',e);
       els.loading.hidden=true;
@@ -154,9 +153,5 @@
   async function navigate(id){if(id<1||id>1025)return;try{const p=await json(`${API}/pokemon/${id}`);await showPokemon({name:p.name,id:p.id,normalized:normalize(p.name)})}catch(e){setStatus(`Could not load Pokémon #${id}.`,'error')}}
   async function search(v,source='typed'){const raw=String(v||'').trim();if(!raw){setStatus('Enter a Pokémon name or number.','error');return}setStatus('Finding Pokémon…');try{const p=await findPokemon(raw);if(!p)throw Error();await showPokemon(p,source)}catch{setStatus(`I couldn't match “${raw}” to a Pokémon.`,'error')}}
 
-  function getRecent(){try{return JSON.parse(localStorage.getItem('pokemon-recent')||'[]')}catch{return[]}}
-  function saveRecent(p){try{let a=getRecent().filter(x=>x.name!==p.name);a.unshift({name:p.name,id:p.id});localStorage.setItem('pokemon-recent',JSON.stringify(a.slice(0,6)));renderRecent()}catch{}}
-  function renderRecent(){const a=getRecent();els.recent.hidden=!a.length;els.recentList.innerHTML='';a.forEach(x=>{const b=document.createElement('button');b.className='recent-item';b.type='button';b.innerHTML=`<strong>${pretty(x.name)}</strong><span>#${String(x.id).padStart(4,'0')}</span>`;b.onclick=()=>search(x.name);els.recentList.appendChild(b)})}
-
-  els.form.addEventListener('submit',e=>{e.preventDefault();search(els.search.value)});document.querySelectorAll('.chip').forEach(b=>b.addEventListener('click',()=>search(b.dataset.name)));renderRecent();setStatus('Ready. Search for a Pokémon by name or number.','success');
+  els.form.addEventListener('submit',e=>{e.preventDefault();search(els.search.value)});setStatus('Ready. Search for a Pokémon by name or number.','success');
 })();
