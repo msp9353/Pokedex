@@ -160,6 +160,13 @@
   });
 
   els.search.addEventListener('focus', () => els.search.value = '');
+
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Enter' && document.activeElement !== els.search) {
+      e.preventDefault();
+      els.search.focus();
+    }
+  });
   
   setStatus('Ready. Search for a Pokémon by name or number.','success');
 })();
