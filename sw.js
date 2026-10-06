@@ -1,11 +1,10 @@
-const CACHE = "pokemon-pokedex-v9";
+const CACHE = "pokemon-pokedex-v10";
 const APP = [
   "./", 
   "./index.html", 
   "./app.js", 
   "./manifest.json", 
-  "./icon.svg",
-  "https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"
+  "./icon.svg"
 ];
 
 self.addEventListener("install", event => {

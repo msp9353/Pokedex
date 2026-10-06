@@ -8,7 +8,7 @@
     number:$('number'), heroName:$('heroName'), genus:$('genus'), art:$('art'), types:$('types'), description:$('description'),
     height:$('height'), weight:$('weight'), category:$('category'), generation:$('generation'), abilities:$('abilities'), stats:$('stats'),
     weaknesses:$('weaknesses'), evolution:$('evolution'), prev:$('prevButton'), next:$('nextButton'), official:$('officialButton'),
-    cameraBtn:$('cameraBtn'), cameraInput:$('cameraInput')
+    cameraBtn:$('cameraBtn')
   };
   let list = [], selected = null, loadingList = null;
 
@@ -23,8 +23,8 @@
   const typeColors = {normal:'#a8a77a',fire:'#ee8130',water:'#6390f0',electric:'#f7d02c',grass:'#7ac74c',ice:'#96d9d6',fighting:'#c22e28',poison:'#a33ea1',ground:'#e2bf65',flying:'#a98ff3',psychic:'#f95587',bug:'#a6b91a',rock:'#b6a136',ghost:'#735797',dragon:'#6f35fc',dark:'#705746',steel:'#b7b7ce',fairy:'#d685ad'};
   const statLabels = {'hp':'HP','attack':'Attack','defense':'Defense','special-attack':'Sp. Atk','special-defense':'Sp. Def','speed':'Speed'};
 
-  function normalize(v){return String(v||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/♀/g,' female ').replace(/♂/g,' male ').replace(/[’']/g,'').replace(/[^a-z0-9]+/g,'').trim()}
-  function slug(v){const raw=String(v||'').trim().toLowerCase();return aliases.get(raw)||aliases.get(normalize(raw))||raw.normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[’']/g,'').replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'')}
+  function normalize(v){return String(v||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/♀/g,' female ').replace(/♂/g,' male ').replace(/[’']/g,'').replace(/[^a-z0-9]+/g,'').trim()}
+  function slug(v){const raw=String(v||'').trim().toLowerCase();return aliases.get(raw)||aliases.get(normalize(raw))||raw.normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[’']/g,'').replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'')}
   function pretty(v){return String(v).split('-').map(x=>x?x[0].toUpperCase()+x.slice(1):x).join(' ')}
   function setStatus(msg,type=''){els.status.textContent=msg;els.status.className='status'+(type?' '+type:'')}
   function officialUrl(name){return `${POKEDEX_BASE}${encodeURIComponent(name)}`}
@@ -77,7 +77,8 @@
     const typeDetails=await Promise.all((pokemon.types||[]).map(t=>json(t.type.url)));
     return {pokemon,species,chain,typeDetails};
   }
-  function englishFlavor(species){const entries=species.flavor_text_entries.filter(x=>x.language.name==='en');return (entries.find(x=>x.version.name==='scarlet')||entries.find(x=>x.version.name==='violet')||entries[0])?.flavor_text.replace(/[\n\f]/g,' ')||'No Pokédex description available.'}
+  function englishFlavor(species){const entries=species.flavor_text_entries.filter(x=>x.language.name==='en');return (entries.find(x=>x.version.name==='scarlet')||entries.find(x=>x.version.name==='violet')||entries[0])?.flavor_text.replace(/[
+]/g,' ')||'No Pokédex description available.'}
   function englishGenus(species){return species.genera.find(x=>x.language.name==='en')?.genus||''}
   function flattenChain(node,out=[],seen=new Set()){
     if(!node) return out;
@@ -150,78 +151,9 @@
   async function navigate(id){if(id<1||id>1025)return;try{const p=await json(`${API}/pokemon/${id}`);await showPokemon({name:p.name,id:p.id,normalized:normalize(p.name)})}catch(e){setStatus(`Could not load Pokémon #${id}.`,'error')}}
   async function search(v,source='typed'){const raw=String(v||'').trim();if(!raw){setStatus('Enter a Pokémon name or number.','error');return}setStatus('Finding Pokémon…');try{const p=await findPokemon(raw);if(!p)throw Error();await showPokemon(p,source)}catch{setStatus(`I couldn't match “${raw}” to a Pokémon.`,'error')}}
   
-  function preprocessImage(file) {
-    return new Promise((resolve) => {
-      const img = new Image();
-      img.onload = () => {
-        const canvas = document.createElement('canvas');
-        const ctx = canvas.getContext('2d');
-
-        const maxDim = 1000;
-        let w = img.width, h = img.height;
-        if (w > h && w > maxDim) { h = Math.round((h * maxDim) / w); w = maxDim; }
-        else if (h > maxDim) { w = Math.round((w * maxDim) / h); h = maxDim; }
-
-        canvas.width = w;
-        canvas.height = h;
-
-        ctx.filter = 'grayscale(100%) contrast(150%) brightness(110%)';
-        ctx.drawImage(img, 0, 0, w, h);
-        resolve(canvas.toDataURL('image/jpeg', 0.85));
-      };
-      img.src = URL.createObjectURL(file);
-    });
-  }
-
-  els.cameraBtn.addEventListener('click', () => els.cameraInput.click());
-  
-  els.cameraInput.addEventListener('change', async (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-
-    setStatus('Scanning photo for Pokémon…', 'success');
-    els.pokedex.classList.add('show');
-    els.entry.hidden = true;
-    els.loading.hidden = false;
-
-    try {
-      const processedImg = await preprocessImage(file);
-      const worker = await Tesseract.createWorker("eng");
-      const { data: { text } } = await worker.recognize(processedImg);
-      await worker.terminate();
-
-      const tokens = text
-        .split(/[\r\n\t,.:;!?(){}\[\]/\\|*#<>~"'\-_+]+/)
-        .map(t => t.trim())
-        .filter(t => t.length >= 3 && !/^\d+$/.test(t));
-
-      for (let i = 0; i < tokens.length - 1; i++) {
-        tokens.push(`${tokens[i]} ${tokens[i+1]}`);
-      }
-
-      let found = null;
-      for (const token of tokens) {
-        const match = await findPokemon(token);
-        if (match) {
-          found = match;
-          break;
-        }
-      }
-
-      if (found) {
-        els.search.value = pretty(found.name);
-        await showPokemon(found, 'ocr');
-      } else {
-        setStatus('Could not match any text in the photo to a Pokémon.', 'error');
-        els.loading.hidden = true;
-      }
-    } catch (err) {
-      console.error(err);
-      setStatus('Failed to scan image. Please try again.', 'error');
-      els.loading.hidden = true;
-    }
-    
-    els.cameraInput.value = ''; 
+  els.cameraBtn.addEventListener('click', () => {
+    els.search.focus();
+    setStatus('Tap the "Scan Text" icon on your keyboard to scan.', 'success');
   });
 
   els.form.addEventListener('submit', e => {
