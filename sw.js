@@ -1,11 +1,5 @@
-const CACHE = "pokemon-pokedex-v10";
-const APP = [
-  "./", 
-  "./index.html", 
-  "./app.js", 
-  "./manifest.json", 
-  "./icon.svg"
-];
+const CACHE = "pokemon-pokedex-v8";
+const APP = ["./", "./index.html", "./app.js", "./manifest.json", "./icon.svg"];
 
 self.addEventListener("install", event => {
   event.waitUntil(caches.open(CACHE).then(cache => cache.addAll(APP)));

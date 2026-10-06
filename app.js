@@ -8,7 +8,6 @@
     number:$('number'), heroName:$('heroName'), genus:$('genus'), art:$('art'), types:$('types'), description:$('description'),
     height:$('height'), weight:$('weight'), category:$('category'), generation:$('generation'), abilities:$('abilities'), stats:$('stats'),
     weaknesses:$('weaknesses'), evolution:$('evolution'), prev:$('prevButton'), next:$('nextButton'), official:$('officialButton'),
-    cameraBtn:$('cameraBtn')
   };
   let list = [], selected = null, loadingList = null;
 
@@ -23,8 +22,8 @@
   const typeColors = {normal:'#a8a77a',fire:'#ee8130',water:'#6390f0',electric:'#f7d02c',grass:'#7ac74c',ice:'#96d9d6',fighting:'#c22e28',poison:'#a33ea1',ground:'#e2bf65',flying:'#a98ff3',psychic:'#f95587',bug:'#a6b91a',rock:'#b6a136',ghost:'#735797',dragon:'#6f35fc',dark:'#705746',steel:'#b7b7ce',fairy:'#d685ad'};
   const statLabels = {'hp':'HP','attack':'Attack','defense':'Defense','special-attack':'Sp. Atk','special-defense':'Sp. Def','speed':'Speed'};
 
-  function normalize(v){return String(v||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/♀/g,' female ').replace(/♂/g,' male ').replace(/[’']/g,'').replace(/[^a-z0-9]+/g,'').trim()}
-  function slug(v){const raw=String(v||'').trim().toLowerCase();return aliases.get(raw)||aliases.get(normalize(raw))||raw.normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[’']/g,'').replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'')}
+  function normalize(v){return String(v||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/♀/g,' female ').replace(/♂/g,' male ').replace(/[’']/g,'').replace(/[^a-z0-9]+/g,'').trim()}
+  function slug(v){const raw=String(v||'').trim().toLowerCase();return aliases.get(raw)||aliases.get(normalize(raw))||raw.normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[’']/g,'').replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'')}
   function pretty(v){return String(v).split('-').map(x=>x?x[0].toUpperCase()+x.slice(1):x).join(' ')}
   function setStatus(msg,type=''){els.status.textContent=msg;els.status.className='status'+(type?' '+type:'')}
   function officialUrl(name){return `${POKEDEX_BASE}${encodeURIComponent(name)}`}
@@ -40,6 +39,8 @@
     if(!raw)return null;
     const s=slug(raw),n=normalize(raw);
 
+    // Fast path: ask PokéAPI directly. This avoids requiring the large
+    // 1,000+ Pokémon list to load before a normal search can work.
     if(!/^\d{1,4}$/.test(raw)){
       try{
         const direct=await json(`${API}/pokemon/${encodeURIComponent(s)}`);
@@ -47,6 +48,7 @@
       }catch{}
     }
 
+    // Fallback for numbers, OCR misspellings, and alternate spellings.
     const data=await loadList();
     if(!data.length) return null;
     if(/^\d{1,4}$/.test(raw)){
@@ -77,8 +79,7 @@
     const typeDetails=await Promise.all((pokemon.types||[]).map(t=>json(t.type.url)));
     return {pokemon,species,chain,typeDetails};
   }
-  function englishFlavor(species){const entries=species.flavor_text_entries.filter(x=>x.language.name==='en');return (entries.find(x=>x.version.name==='scarlet')||entries.find(x=>x.version.name==='violet')||entries[0])?.flavor_text.replace(/[
-]/g,' ')||'No Pokédex description available.'}
+  function englishFlavor(species){const entries=species.flavor_text_entries.filter(x=>x.language.name==='en');return (entries.find(x=>x.version.name==='scarlet')||entries.find(x=>x.version.name==='violet')||entries[0])?.flavor_text.replace(/[\n\f]/g,' ')||'No Pokédex description available.'}
   function englishGenus(species){return species.genera.find(x=>x.language.name==='en')?.genus||''}
   function flattenChain(node,out=[],seen=new Set()){
     if(!node) return out;
@@ -131,6 +132,7 @@
       }
     });
 
+    // Always start at the beginning so the first Pokémon is visible.
     els.evolution.scrollLeft=0;
   }
 
@@ -151,14 +153,9 @@
   async function navigate(id){if(id<1||id>1025)return;try{const p=await json(`${API}/pokemon/${id}`);await showPokemon({name:p.name,id:p.id,normalized:normalize(p.name)})}catch(e){setStatus(`Could not load Pokémon #${id}.`,'error')}}
   async function search(v,source='typed'){const raw=String(v||'').trim();if(!raw){setStatus('Enter a Pokémon name or number.','error');return}setStatus('Finding Pokémon…');try{const p=await findPokemon(raw);if(!p)throw Error();await showPokemon(p,source)}catch{setStatus(`I couldn't match “${raw}” to a Pokémon.`,'error')}}
   
-  els.cameraBtn.addEventListener('click', () => {
-    els.search.focus();
-    setStatus('Tap the "Scan Text" icon on your keyboard to scan.', 'success');
-  });
-
   els.form.addEventListener('submit', e => {
     e.preventDefault();
-    els.search.blur(); 
+    els.search.blur(); // This removes focus from the input, hiding the mobile keyboard
     search(els.search.value);
   });
 
