@@ -15,6 +15,7 @@
   const pokemonScreenshot = $("pokemonScreenshot");
   const screenshotLoading = $("screenshotLoading");
   const embedFallback = $("embedFallback");
+  const debugScreenshotLink = $("debugScreenshotLink");
   const cameraButton = $("cameraButton");
   const scanModal = $("scanModal");
   const closeModal = $("closeModal");
@@ -241,7 +242,9 @@
       embedFallback.hidden = true;
       screenshotLoading.hidden = false;
       pokemonScreenshot.style.visibility = "hidden";
-      pokemonScreenshot.src = screenshotUrl(pokemon.name);
+      const screenshot = screenshotUrl(pokemon.name);
+      debugScreenshotLink.href = screenshot;
+      pokemonScreenshot.src = screenshot;
       result.classList.add("show");
 
       setStatus(
@@ -258,7 +261,7 @@
 
   function screenshotUrl(slug) {
     const target = pokemonUrl(slug);
-    return `https://image.thum.io/get/width/900/crop/1500/noanimate/${target}`;
+    return `https://image.thum.io/get/?url=${encodeURIComponent(target)}`;
   }
 
   function openSelected() {
@@ -275,6 +278,7 @@
     screenshotLoading.hidden = true;
     pokemonScreenshot.style.visibility = "hidden";
     embedFallback.hidden = false;
+    setStatus("The screenshot service did not return an image. Try the direct screenshot link below.", "error");
   });
 
   function getRecent() {
