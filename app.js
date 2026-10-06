@@ -150,31 +150,69 @@
   async function navigate(id){if(id<1||id>1025)return;try{const p=await json(`${API}/pokemon/${id}`);await showPokemon({name:p.name,id:p.id,normalized:normalize(p.name)})}catch(e){setStatus(`Could not load Pokémon #${id}.`,'error')}}
   async function search(v,source='typed'){const raw=String(v||'').trim();if(!raw){setStatus('Enter a Pokémon name or number.','error');return}setStatus('Finding Pokémon…');try{const p=await findPokemon(raw);if(!p)throw Error();await showPokemon(p,source)}catch{setStatus(`I couldn't match “${raw}” to a Pokémon.`,'error')}}
   
+  function preprocessImage(file) {
+    return new Promise((resolve) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+
+        const maxDim = 1000;
+        let w = img.width, h = img.height;
+        if (w > h && w > maxDim) { h = Math.round((h * maxDim) / w); w = maxDim; }
+        else if (h > maxDim) { w = Math.round((w * maxDim) / h); h = maxDim; }
+
+        canvas.width = w;
+        canvas.height = h;
+
+        ctx.filter = 'grayscale(100%) contrast(150%) brightness(110%)';
+        ctx.drawImage(img, 0, 0, w, h);
+        resolve(canvas.toDataURL('image/jpeg', 0.85));
+      };
+      img.src = URL.createObjectURL(file);
+    });
+  }
+
   els.cameraBtn.addEventListener('click', () => els.cameraInput.click());
   
   els.cameraInput.addEventListener('change', async (e) => {
     const file = e.target.files[0];
     if (!file) return;
 
-    setStatus('Scanning image for text...', 'success');
+    setStatus('Scanning photo for Pokémon…', 'success');
     els.pokedex.classList.add('show');
     els.entry.hidden = true;
     els.loading.hidden = false;
 
     try {
+      const processedImg = await preprocessImage(file);
       const worker = await Tesseract.createWorker("eng");
-      const { data: { text } } = await worker.recognize(file);
+      const { data: { text } } = await worker.recognize(processedImg);
       await worker.terminate();
 
-      const cleanedText = text.replace(/[^a-zA-Z0-9\s-]/g, '').trim();
-      const words = cleanedText.split(/[\s\n]+/).sort((a,b) => b.length - a.length);
-      const query = words[0]; 
+      const tokens = text
+        .split(/[\r\n\t,.:;!?(){}\[\]/\\|*#<>~"'\-_+]+/)
+        .map(t => t.trim())
+        .filter(t => t.length >= 3 && !/^\d+$/.test(t));
 
-      if (query && query.length > 2) {
-        els.search.value = query;
-        search(query, 'ocr');
+      for (let i = 0; i < tokens.length - 1; i++) {
+        tokens.push(`${tokens[i]} ${tokens[i+1]}`);
+      }
+
+      let found = null;
+      for (const token of tokens) {
+        const match = await findPokemon(token);
+        if (match) {
+          found = match;
+          break;
+        }
+      }
+
+      if (found) {
+        els.search.value = pretty(found.name);
+        await showPokemon(found, 'ocr');
       } else {
-        setStatus('No valid Pokémon name found in image.', 'error');
+        setStatus('Could not match any text in the photo to a Pokémon.', 'error');
         els.loading.hidden = true;
       }
     } catch (err) {
