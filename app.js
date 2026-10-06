@@ -12,8 +12,8 @@
   const pokemonName = $("pokemonName");
   const pokemonMeta = $("pokemonMeta");
   const openButton = $("openButton");
-  const pokemonFrame = $("pokemonFrame");
-  const embedLoading = $("embedLoading");
+  const pokemonScreenshot = $("pokemonScreenshot");
+  const screenshotLoading = $("screenshotLoading");
   const embedFallback = $("embedFallback");
   const cameraButton = $("cameraButton");
   const scanModal = $("scanModal");
@@ -235,13 +235,13 @@
       pokemonMeta.textContent =
         `National Pokédex #${String(pokemon.id).padStart(4, "0")} • ${pokemon.name}`;
 
-      // Load the official Pokémon.com page inside the Pokédex.
-      // Pokémon.com currently uses X-Frame-Options: SAMEORIGIN, so some
-      // browsers will block this cross-origin iframe. In that case the
-      // fallback button is shown automatically.
+      // Pokémon.com blocks cross-origin iframes. Instead, render a live
+      // screenshot of the official page through Thum.io, which can be
+      // displayed as a normal image on GitHub Pages.
       embedFallback.hidden = true;
-      embedLoading.style.display = "flex";
-      pokemonFrame.src = pokemonUrl(pokemon.name);
+      screenshotLoading.hidden = false;
+      pokemonScreenshot.style.visibility = "hidden";
+      pokemonScreenshot.src = screenshotUrl(pokemon.name);
       result.classList.add("show");
 
       setStatus(
@@ -256,25 +256,26 @@
     }
   }
 
+  function screenshotUrl(slug) {
+    const target = pokemonUrl(slug);
+    return `https://image.thum.io/get/width/900/crop/1500/noanimate/${target}`;
+  }
+
   function openSelected() {
     if (!selectedPokemon) return;
     window.location.href = pokemonUrl(selectedPokemon.name);
   }
 
-  pokemonFrame.addEventListener("load", () => {
-    embedLoading.style.display = "none";
+  pokemonScreenshot.addEventListener("load", () => {
+    screenshotLoading.hidden = true;
+    pokemonScreenshot.style.visibility = "visible";
   });
 
-  // A cross-origin iframe that is blocked by X-Frame-Options does not
-  // reliably expose a useful "error" event. Give it enough time to load,
-  // then show a fallback if no page content becomes visible.
-  function checkEmbedFallback() {
-    if (!result.classList.contains("show")) return;
-    if (pokemonFrame.src && embedLoading.style.display !== "none") {
-      embedLoading.style.display = "none";
-      embedFallback.hidden = false;
-    }
-  }
+  pokemonScreenshot.addEventListener("error", () => {
+    screenshotLoading.hidden = true;
+    pokemonScreenshot.style.visibility = "hidden";
+    embedFallback.hidden = false;
+  });
 
   function getRecent() {
     try {
@@ -431,16 +432,6 @@
   openButton.addEventListener("click", openSelected);
   cameraButton.addEventListener("click", openScanner);
 
-  // Fallback for browsers that block the Pokémon.com iframe.
-  // This does not interfere with normal embedding when the iframe loads.
-  pokemonFrame.addEventListener("load", () => {
-    window.setTimeout(() => {
-      if (pokemonFrame.contentDocument === null) {
-        checkEmbedFallback();
-      }
-    }, 250);
-  });
-  window.setTimeout(checkEmbedFallback, 5000);
   closeModal.addEventListener("click", closeScanner);
   chooseImage.addEventListener("click", () => imageInput.click());
   runAgain.addEventListener("click", () => imageInput.click());
