@@ -1,4 +1,4 @@
-const CACHE = "pokedex-scanner-v1";
+const CACHE = "pokedex-scanner-v2";
 const APP = ["./", "./index.html", "./app.js", "./manifest.json", "./icon.svg"];
 
 self.addEventListener("install", event => {
