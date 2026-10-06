@@ -75,19 +75,27 @@
   async function loadEntry(p){
     const pokemon=await json(`${API}/pokemon/${encodeURIComponent(p.name)}`);
     const species=await json(pokemon.species.url);
-    const chain=species.evolution_chain?.url ? await json(species.evolution_chain.url) : null;
+    const chainUrl = species?.evolution_chain?.url;
+    const chainId = chainUrl?.match(/\/evolution-chain\/(\d+)\/?$/)?.[1];
+    const chain = chainId ? await json(`${API}/evolution-chain/${chainId}`) : null;
     const typeDetails=await Promise.all((pokemon.types||[]).map(t=>json(t.type.url)));
     return {pokemon,species,chain,typeDetails};
   }
   function englishFlavor(species){const entries=species.flavor_text_entries.filter(x=>x.language.name==='en');return (entries.find(x=>x.version.name==='scarlet')||entries.find(x=>x.version.name==='violet')||entries[0])?.flavor_text.replace(/[\n\f]/g,' ')||'No Pokédex description available.'}
   function englishGenus(species){return species.genera.find(x=>x.language.name==='en')?.genus||''}
-  function flattenChain(node,out=[]){
+  function flattenChain(node,out=[],seen=new Set()){
     if(!node) return out;
-    if(node.species?.name){
-      const match=node.species.url?.match(/\/(\d+)\/?$/);
-      out.push({name:node.species.name,id:match?Number(match[1]):null});
+    const name=node.species?.name;
+    const url=node.species?.url || '';
+    const match=url.match(/\/pokemon-species\/(\d+)\/?$/) || url.match(/\/(\d+)\/?$/);
+    const id=match ? Number(match[1]) : null;
+    if(name && !seen.has(name)){
+      seen.add(name);
+      out.push({name,id});
     }
-    (node.evolves_to||[]).forEach(x=>flattenChain(x,out));
+    for(const next of (Array.isArray(node.evolves_to) ? node.evolves_to : [])){
+      flattenChain(next,out,seen);
+    }
     return out;
   }
   function renderTypes(types){els.types.innerHTML='';(types||[]).forEach(t=>{const name=t?.type?.name;if(!name)return;const s=document.createElement('span');s.className='type';s.textContent=name;s.style.background=typeColors[name]||'#777';els.types.appendChild(s)})}
