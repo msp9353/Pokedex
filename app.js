@@ -85,7 +85,7 @@
     if(!node) return out;
     const name=node.species?.name;
     const url=node.species?.url || '';
-    const match=url.match(/\/pokemon-species\/(\d+)\/?$/) || url.match(/\/(\d+)\/?$/);
+    const match=url.match(/\/pokemon-species\/(\d+)\/?$/) \vert{}\vert{} url.match(/\/(\d+)\/?$/);
     const id=match ? Number(match[1]) : null;
     if(name && !seen.has(name)){
       seen.add(name);
@@ -160,6 +160,17 @@
   });
 
   els.search.addEventListener('focus', () => els.search.value = '');
+
+  // NEW: Jump to search when pressing Enter outside the search bar
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Enter' && document.activeElement !== els.search) {
+      // Prevent stealing focus if the user is pressing a button like 'Next'
+      if (document.activeElement.tagName !== 'BUTTON') {
+        e.preventDefault();
+        els.search.focus();
+      }
+    }
+  });
   
   setStatus('Ready. Search for a Pokémon by name or number.','success');
 })();
