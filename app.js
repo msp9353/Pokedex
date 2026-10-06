@@ -102,10 +102,39 @@
   function renderStats(stats){els.stats.innerHTML='';(stats||[]).forEach(s=>{const statName=s?.stat?.name;if(!statName)return;const row=document.createElement('div');row.className='stat';const name=document.createElement('div');name.className='stat-name';name.textContent=statLabels[statName]||pretty(statName);const val=document.createElement('div');val.className='stat-value';val.textContent=s.base_stat??'—';const wrap=document.createElement('div');wrap.className='bar';const bar=document.createElement('i');bar.style.width=Math.min(100,(s.base_stat||0)/180*100)+'%';wrap.appendChild(bar);row.append(name,val,wrap);els.stats.appendChild(row)})}
   function renderWeaknesses(details){const mult={};(details||[]).forEach(d=>(d?.damage_relations?.double_damage_from||[]).forEach(t=>{if(t?.name)mult[t.name]=(mult[t.name]||1)*2}));const arr=Object.entries(mult).filter(([,v])=>v>1).sort((a,b)=>b[1]-a[1]);els.weaknesses.innerHTML='';arr.forEach(([name,m])=>{const x=document.createElement('span');x.className='weak';x.textContent=`${pretty(name)} ×${m}`;els.weaknesses.appendChild(x)});if(!arr.length)els.weaknesses.innerHTML='<span class="weak">No major weaknesses</span>'}
   function renderEvolution(chain){
-    const nodes=flattenChain(chain?.chain || chain);
+    const nodes=flattenChain(chain);
     els.evolution.innerHTML='';
     if(!nodes.length){els.evolution.innerHTML='<span class="weak">No evolution data available</span>';return;}
-    nodes.forEach((x,i)=>{const wrap=document.createElement('div');wrap.className='evo-item';const img=document.createElement('img');img.src=x.id?`https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/${x.id}.png`:`https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${encodeURIComponent(x.name)}.png`;img.alt=pretty(x.name);img.loading='lazy';const label=document.createElement('strong');label.textContent=pretty(x.name);wrap.append(img,label);els.evolution.appendChild(wrap);if(i<nodes.length-1){const a=document.createElement('span');a.className='evo-arrow';a.textContent='→';els.evolution.appendChild(a)}});
+
+    nodes.forEach((x,i)=>{
+      const wrap=document.createElement('button');
+      wrap.type='button';
+      wrap.className='evo-item';
+      wrap.title=`View ${pretty(x.name)}`;
+      wrap.setAttribute('aria-label',`View ${pretty(x.name)}`);
+      wrap.addEventListener('click',()=>search(x.name,'evolution'));
+
+      const img=document.createElement('img');
+      img.src=x.id?`https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/${x.id}.png`:`https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${encodeURIComponent(x.name)}.png`;
+      img.alt=pretty(x.name);
+      img.loading='lazy';
+
+      const label=document.createElement('strong');
+      label.textContent=pretty(x.name);
+      wrap.append(img,label);
+      els.evolution.appendChild(wrap);
+
+      if(i<nodes.length-1){
+        const a=document.createElement('span');
+        a.className='evo-arrow';
+        a.textContent='→';
+        a.setAttribute('aria-hidden','true');
+        els.evolution.appendChild(a);
+      }
+    });
+
+    // Always start at the beginning so the first Pokémon is visible.
+    els.evolution.scrollLeft=0;
   }
 
   async function showPokemon(p,source='typed'){
