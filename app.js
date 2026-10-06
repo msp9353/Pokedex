@@ -153,5 +153,5 @@
   async function navigate(id){if(id<1||id>1025)return;try{const p=await json(`${API}/pokemon/${id}`);await showPokemon({name:p.name,id:p.id,normalized:normalize(p.name)})}catch(e){setStatus(`Could not load Pokémon #${id}.`,'error')}}
   async function search(v,source='typed'){const raw=String(v||'').trim();if(!raw){setStatus('Enter a Pokémon name or number.','error');return}setStatus('Finding Pokémon…');try{const p=await findPokemon(raw);if(!p)throw Error();await showPokemon(p,source)}catch{setStatus(`I couldn't match “${raw}” to a Pokémon.`,'error')}}
 
-  els.form.addEventListener('submit',e=>{e.preventDefault();const value=els.search.value;els.search.blur();if(document.activeElement&&typeof document.activeElement.blur==='function')document.activeElement.blur();setTimeout(()=>{if(document.activeElement&&typeof document.activeElement.blur==='function')document.activeElement.blur();},50);search(value)});setStatus('Ready. Search for a Pokémon by name or number.','success');
+  els.form.addEventListener('submit',e=>{e.preventDefault();search(els.search.value)});setStatus('Ready. Search for a Pokémon by name or number.','success');
 })();
