@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#dc2626">
+  <meta name="description" content="A mobile Pokémon.com Pokédex shortcut with text search and camera OCR.">
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" href="icon.svg" type="image/svg+xml">
+  <title>Pokédex Scanner</title>
+  <link rel="preconnect" href="https://cdn.jsdelivr.net">
+  <style>
+    :root {
+      --red: #dc2626;
+      --red-dark: #b91c1c;
+      --bg: #f4f4f5;
+      --card: #ffffff;
+      --text: #18181b;
+      --muted: #71717a;
+      --border: #e4e4e7;
+      --green: #16a34a;
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; min-height: 100%; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      -webkit-font-smoothing: antialiased;
+    }
+    button, input { font: inherit; }
+    .app {
+      width: min(100%, 620px);
+      margin: 0 auto;
+      padding: max(18px, env(safe-area-inset-top)) 16px max(28px, env(safe-area-inset-bottom));
+    }
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 8px 2px 20px;
+    }
+    .brand { display: flex; align-items: center; gap: 10px; }
+    .pokeball {
+      width: 34px; height: 34px; border-radius: 50%;
+      background: linear-gradient(#ef4444 0 46%, #18181b 46% 54%, #fff 54%);
+      border: 2px solid #18181b;
+      position: relative;
+      box-shadow: 0 2px 4px #0002;
+    }
+    .pokeball::after {
+      content: ""; position: absolute; width: 10px; height: 10px;
+      background: #fff; border: 2px solid #18181b; border-radius: 50%;
+      left: 50%; top: 50%; transform: translate(-50%, -50%);
+    }
+    h1 { margin: 0; font-size: 22px; letter-spacing: -.4px; }
+    .subtitle { color: var(--muted); font-size: 13px; margin-top: 2px; }
+    .hero {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 22px;
+      padding: 20px;
+      box-shadow: 0 5px 20px #0000000a;
+    }
+    .search-row { display: flex; gap: 9px; }
+    .search-wrap {
+      flex: 1; position: relative;
+    }
+    .search-wrap span {
+      position: absolute; left: 15px; top: 50%; transform: translateY(-50%);
+      font-size: 18px; pointer-events: none;
+    }
+    #search {
+      width: 100%; height: 52px; border: 1px solid #d4d4d8; border-radius: 15px;
+      padding: 0 14px 0 44px; outline: none; background: #fafafa;
+      font-size: 17px;
+    }
+    #search:focus { border-color: var(--red); box-shadow: 0 0 0 3px #dc26261c; background: #fff; }
+    .camera-btn {
+      width: 52px; min-width: 52px; height: 52px; border: 0; border-radius: 15px;
+      background: var(--red); color: white; font-size: 23px; cursor: pointer;
+      display: grid; place-items: center;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .camera-btn:active { background: var(--red-dark); transform: scale(.97); }
+    .hint { color: var(--muted); font-size: 13px; line-height: 1.45; margin: 12px 2px 0; }
+    .suggestions { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 15px; }
+    .chip {
+      border: 1px solid var(--border); background: #fafafa; border-radius: 999px;
+      padding: 8px 11px; font-size: 13px; color: #3f3f46; cursor: pointer;
+    }
+    .chip:active { background: #f4f4f5; }
+    .status {
+      min-height: 22px; margin: 16px 2px 0; font-size: 14px; color: var(--muted);
+    }
+    .status.error { color: #b91c1c; }
+    .status.success { color: var(--green); }
+    .result {
+      display: none; margin-top: 14px; background: var(--card);
+      border: 1px solid var(--border); border-radius: 18px; padding: 16px;
+    }
+    .result.show { display: block; }
+    .result-title { font-size: 13px; color: var(--muted); margin-bottom: 6px; }
+    .pokemon-name { font-size: 24px; font-weight: 750; text-transform: capitalize; }
+    .pokemon-meta { font-size: 13px; color: var(--muted); margin-top: 3px; }
+    .open-btn {
+      width: 100%; height: 48px; margin-top: 14px; border: 0; border-radius: 13px;
+      background: #18181b; color: #fff; font-weight: 650; cursor: pointer;
+    }
+    .open-btn:active { transform: scale(.99); }
+    .recent { margin-top: 18px; }
+    .recent-title { font-size: 13px; font-weight: 700; color: #52525b; margin: 0 2px 8px; }
+    .recent-list { display: grid; gap: 7px; }
+    .recent-item {
+      display: flex; align-items: center; justify-content: space-between;
+      width: 100%; min-height: 44px; padding: 0 13px;
+      background: #fff; border: 1px solid var(--border); border-radius: 12px;
+      cursor: pointer; text-align: left;
+    }
+    .recent-item strong { text-transform: capitalize; }
+    .recent-item span { color: var(--muted); font-size: 12px; }
+    .modal {
+      position: fixed; inset: 0; z-index: 10; display: none;
+      background: #000b; padding: 18px;
+      align-items: center; justify-content: center;
+    }
+    .modal.show { display: flex; }
+    .modal-card {
+      width: min(100%, 480px); max-height: 90vh; overflow: auto;
+      background: #fff; border-radius: 22px; padding: 18px;
+    }
+    .modal-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+    .modal-head h2 { margin: 0; font-size: 19px; }
+    .close {
+      width: 42px; height: 42px; border: 0; border-radius: 12px; background: #f4f4f5;
+      cursor: pointer; font-size: 20px;
+    }
+    .scan-preview {
+      width: 100%; aspect-ratio: 4 / 3; object-fit: contain;
+      background: #18181b; border-radius: 15px; margin-top: 14px; display: none;
+    }
+    .scan-preview.show { display: block; }
+    .scan-box {
+      margin-top: 14px; padding: 15px; border: 1px dashed #d4d4d8; border-radius: 15px;
+      color: var(--muted); font-size: 14px; line-height: 1.5; text-align: center;
+    }
+    .progress { margin-top: 12px; height: 7px; background: #e4e4e7; border-radius: 999px; overflow: hidden; display: none; }
+    .progress.show { display: block; }
+    .progress > div { height: 100%; width: 0%; background: var(--red); transition: width .2s; }
+    .scan-action {
+      width: 100%; min-height: 48px; margin-top: 12px; border: 1px solid var(--border);
+      background: #fff; border-radius: 13px; font-weight: 650; cursor: pointer;
+    }
+    .scan-action.primary { background: var(--red); color: #fff; border-color: var(--red); }
+    .footer { color: #a1a1aa; text-align: center; font-size: 11px; margin-top: 22px; line-height: 1.5; }
+    @media (min-width: 560px) {
+      .app { padding-top: 32px; }
+      .hero { padding: 24px; }
+    }
+  </style>
+</head>
+<body>
+  <main class="app">
+    <header>
+      <div class="brand">
+        <div class="pokeball" aria-hidden="true"></div>
+        <div>
+          <h1>Pokédex Scanner</h1>
+          <div class="subtitle">Search or scan a Pokémon name</div>
+        </div>
+      </div>
+    </header>
+
+    <section class="hero" aria-label="Pokémon search">
+      <form id="searchForm">
+        <div class="search-row">
+          <div class="search-wrap">
+            <span aria-hidden="true">⌕</span>
+            <input id="search" type="search" autocomplete="off" autocapitalize="words"
+                   spellcheck="false" placeholder="Enter Pokémon name or number" aria-label="Pokémon name or number">
+          </div>
+          <button class="camera-btn" id="cameraButton" type="button" aria-label="Scan Pokémon name with camera">📷</button>
+        </div>
+      </form>
+
+      <div class="hint">
+        Type a name, number, or tap the camera to photograph text. OCR runs in your browser.
+      </div>
+
+      <div class="suggestions" aria-label="Examples">
+        <button class="chip" type="button" data-name="Pikachu">Pikachu</button>
+        <button class="chip" type="button" data-name="Charizard">Charizard</button>
+        <button class="chip" type="button" data-name="Gengar">Gengar</button>
+        <button class="chip" type="button" data-name="Eevee">Eevee</button>
+      </div>
+
+      <div id="status" class="status" aria-live="polite"></div>
+
+      <div id="result" class="result" aria-live="polite">
+        <div class="result-title">Pokémon found</div>
+        <div id="pokemonName" class="pokemon-name"></div>
+        <div id="pokemonMeta" class="pokemon-meta"></div>
+        <button id="openButton" class="open-btn" type="button">Open on Pokémon.com ↗</button>
+      </div>
+    </section>
+
+    <section id="recentSection" class="recent" hidden>
+      <div class="recent-title">Recent searches</div>
+      <div id="recentList" class="recent-list"></div>
+    </section>
+
+    <div class="footer">
+      This is an unofficial fan-made shortcut. Pokémon and Pokémon character names are trademarks of their respective owners.
+    </div>
+  </main>
+
+  <div id="scanModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="scanTitle">
+    <div class="modal-card">
+      <div class="modal-head">
+        <h2 id="scanTitle">Scan Pokémon name</h2>
+        <button id="closeModal" class="close" type="button" aria-label="Close scanner">×</button>
+      </div>
+
+      <img id="scanPreview" class="scan-preview" alt="Selected image preview">
+
+      <div id="scanBox" class="scan-box">
+        Take a photo of a Pokémon name, or choose an existing photo.
+        For best results, fill the frame with the name and use good lighting.
+      </div>
+
+      <input id="imageInput" type="file" accept="image/*" capture="environment" hidden>
+      <button id="chooseImage" class="scan-action primary" type="button">📷 Take / Choose Photo</button>
+
+      <div id="progress" class="progress" aria-hidden="true"><div id="progressBar"></div></div>
+      <button id="runAgain" class="scan-action" type="button" hidden>Scan Another Photo</button>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
