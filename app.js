@@ -37,12 +37,40 @@
   }
   function levenshtein(a,b){if(a===b)return 0;if(!a)return b.length;if(!b)return a.length;if(a.length>b.length)[a,b]=[b,a];let p=Array.from({length:a.length+1},(_,i)=>i);for(let j=1;j<=b.length;j++){let c=[j];for(let i=1;i<=a.length;i++)c[i]=Math.min(c[i-1]+1,p[i]+1,p[i-1]+(a[i-1]===b[j-1]?0:1));p=c}return p[a.length]}
   async function findPokemon(input){
-    const raw=String(input||'').trim();if(!raw)return null;const data=await loadList();const s=slug(raw),n=normalize(raw);
-    if(/^\d{1,4}$/.test(raw)){const p=data.find(x=>x.id===Number(raw));if(p)return p}
-    const exact=data.find(x=>x.name===s||x.normalized===n);if(exact)return exact;
-    let best=null;for(const p of data){const d=levenshtein(n,p.normalized),ratio=1-d/Math.max(n.length,p.normalized.length);if(!best||ratio>best.ratio)best={p,ratio}}return best&&best.ratio>=(best.p.normalized.length<=5?.68:.62)?best.p:null;
+    const raw=String(input||'').trim();
+    if(!raw)return null;
+    const s=slug(raw),n=normalize(raw);
+
+    // Fast path: ask PokéAPI directly. This avoids requiring the large
+    // 1,000+ Pokémon list to load before a normal search can work.
+    if(!/^\d{1,4}$/.test(raw)){
+      try{
+        const direct=await json(`${API}/pokemon/${encodeURIComponent(s)}`);
+        return {name:direct.name,id:direct.id,normalized:normalize(direct.name)};
+      }catch{}
+    }
+
+    // Fallback for numbers, OCR misspellings, and alternate spellings.
+    const data=await loadList();
+    if(!data.length) return null;
+    if(/^\d{1,4}$/.test(raw)){
+      const p=data.find(x=>x.id===Number(raw));
+      if(p)return p;
+    }
+    const exact=data.find(x=>x.name===s||x.normalized===n);
+    if(exact)return exact;
+    let best=null;
+    for(const p of data){
+      const d=levenshtein(n,p.normalized),ratio=1-d/Math.max(n.length,p.normalized.length);
+      if(!best||ratio>best.ratio)best={p,ratio};
+    }
+    return best&&best.ratio>=(best.p.normalized.length<=5?.68:.62)?best.p:null;
   }
-  async function json(url){const r=await fetch(url);if(!r.ok)throw Error(`HTTP ${r.status}`);return r.json()}
+  async function json(url){
+    const r=await fetch(url,{headers:{Accept:'application/json'}});
+    if(!r.ok)throw Error(`HTTP ${r.status} for ${url}`);
+    return r.json();
+  }
 
   async function loadEntry(p){
     const [pokemon,species]=await Promise.all([json(`${API}/pokemon/${p.name}`),json(`${API}/pokemon-species/${p.name}`)]);
@@ -67,7 +95,12 @@
       els.number.textContent=`#${String(pokemon.id).padStart(4,'0')}`;els.heroName.textContent=pretty(pokemon.name);els.genus.textContent=englishGenus(species);els.art.src=pokemon.sprites.other?.['official-artwork']?.front_default||pokemon.sprites.front_default;els.art.alt=pretty(pokemon.name);renderTypes(pokemon.types);els.description.textContent=englishFlavor(species);els.height.textContent=`${(pokemon.height/10).toFixed(1)} m`;els.weight.textContent=`${(pokemon.weight/10).toFixed(1)} kg`;els.category.textContent=englishGenus(species).replace(/ Pokémon$/i,'')||'Pokémon';els.generation.textContent=pretty(species.generation.name.replace('generation-','Gen '));
       els.abilities.innerHTML='';pokemon.abilities.forEach(a=>{const x=document.createElement('div');x.className='ability';x.innerHTML=`${pretty(a.ability.name)}${a.is_hidden?' <small>(Hidden)</small>':''}`;els.abilities.appendChild(x)});renderStats(pokemon.stats);renderWeaknesses(typeDetails);await renderEvolutionAsync(chain);
       const id=pokemon.id;els.prev.disabled=id<=1;els.next.disabled=id>=1025;els.prev.onclick=()=>navigate(id-1);els.next.onclick=()=>navigate(id+1);els.official.onclick=()=>window.open(officialUrl(pokemon.name),'_blank','noopener');els.entry.hidden=false;els.loading.hidden=true;els.search.value=pretty(pokemon.name);setStatus(source==='ocr'?`OCR matched ${pretty(pokemon.name)}.`:'Pokédex entry loaded.','success');saveRecent(p);window.scrollTo({top:0,behavior:'smooth'});
-    }catch(e){console.error(e);els.loading.hidden=true;setStatus('Could not load this Pokédex entry. Check your connection and try again.','error')}
+    }catch(e){
+      console.error('Pokédex load failed:',e);
+      els.loading.hidden=true;
+      const detail=e?.message?` (${e.message})`:'';
+      setStatus(`Could not load this Pokédex entry${detail}. Check your connection and try again.`,'error');
+    }
   }
   async function navigate(id){const p=list.find(x=>x.id===id);if(p)showPokemon(p)}
   async function search(v,source='typed'){const raw=String(v||'').trim();if(!raw){setStatus('Enter a Pokémon name or number.','error');return}setStatus('Finding Pokémon…');try{const p=await findPokemon(raw);if(!p)throw Error();await showPokemon(p,source)}catch{setStatus(`I couldn't match “${raw}” to a Pokémon.`,'error')}}
