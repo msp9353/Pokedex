@@ -108,6 +108,38 @@
       background: #18181b; color: #fff; font-weight: 650; cursor: pointer;
     }
     .open-btn:active { transform: scale(.99); }
+    .embed-shell {
+      position: relative; margin-top: 14px; border: 1px solid var(--border);
+      border-radius: 15px; overflow: hidden; background: #f4f4f5;
+      min-height: 620px;
+    }
+    #pokemonFrame {
+      display: block; width: 100%; height: min(78vh, 820px); min-height: 620px;
+      border: 0; background: #fff;
+    }
+    .embed-loading {
+      position: absolute; z-index: 2; inset: 0; min-height: 220px;
+      display: flex; align-items: center; justify-content: center; gap: 10px;
+      background: #fff; color: var(--muted); font-size: 14px;
+    }
+    .spinner {
+      width: 20px; height: 20px; border-radius: 50%;
+      border: 3px solid #e4e4e7; border-top-color: var(--red);
+      animation: spin .8s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .embed-fallback {
+      position: absolute; z-index: 3; inset: 0; padding: 28px 20px;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      text-align: center; background: #fff;
+    }
+    .embed-fallback[hidden] { display: none; }
+    .embed-fallback strong { font-size: 17px; }
+    .embed-fallback p { color: var(--muted); font-size: 14px; line-height: 1.5; max-width: 360px; }
+    @media (max-width: 420px) {
+      .embed-shell { min-height: 560px; }
+      #pokemonFrame { min-height: 560px; height: 78vh; }
+    }
     .recent { margin-top: 18px; }
     .recent-title { font-size: 13px; font-weight: 700; color: #52525b; margin: 0 2px 8px; }
     .recent-list { display: grid; gap: 7px; }
@@ -197,10 +229,28 @@
       <div id="status" class="status" aria-live="polite"></div>
 
       <div id="result" class="result" aria-live="polite">
-        <div class="result-title">Pokémon found</div>
+        <div class="result-title">Official Pokémon.com Pokédex</div>
         <div id="pokemonName" class="pokemon-name"></div>
         <div id="pokemonMeta" class="pokemon-meta"></div>
-        <button id="openButton" class="open-btn" type="button">Open on Pokémon.com ↗</button>
+
+        <div class="embed-shell">
+          <div id="embedLoading" class="embed-loading">
+            <div class="spinner" aria-hidden="true"></div>
+            <span>Loading Pokémon.com…</span>
+          </div>
+          <iframe
+            id="pokemonFrame"
+            title="Official Pokémon.com Pokédex"
+            loading="lazy"
+            referrerpolicy="strict-origin-when-cross-origin"
+            allow="fullscreen"
+          ></iframe>
+          <div id="embedFallback" class="embed-fallback" hidden>
+            <strong>Pokémon.com doesn't allow this page to be embedded here.</strong>
+            <p>Your browser is blocking the official page from appearing inside this Pokédex. The page itself is still available.</p>
+            <button id="openButton" class="open-btn" type="button">Open Pokémon.com ↗</button>
+          </div>
+        </div>
       </div>
     </section>
 

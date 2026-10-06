@@ -32,11 +32,13 @@ The site includes a web app manifest and a service worker for the app shell. OCR
 
 ### Search
 
-The app loads the Pokémon name list from PokeAPI and uses it only to identify the Pokémon. Once a match is found, it constructs the official Pokémon.com URL:
+The app loads the Pokémon name list from PokeAPI and uses it only to identify the Pokémon. Once a match is found, the app attempts to load the official Pokémon.com page inside an iframe:
 
 `https://www.pokemon.com/us/pokedex/<pokemon-name>`
 
-Pokémon.com currently uses individual Pokédex pages such as `/us/pokedex/raichu`.
+### Important embedding limitation
+
+Pokémon.com currently sends `X-Frame-Options: SAMEORIGIN`, which means browsers can prevent a GitHub Pages site from embedding the page. The app therefore attempts the iframe first and provides a fallback button to open the official page directly if the browser blocks it. This restriction is imposed by Pokémon.com and cannot be bypassed by JavaScript in a normal GitHub Pages site.
 
 ### Camera OCR
 
