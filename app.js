@@ -73,27 +73,39 @@
   }
 
   async function loadEntry(p){
-    const [pokemon,species]=await Promise.all([json(`${API}/pokemon/${p.name}`),json(`${API}/pokemon-species/${p.name}`)]);
-    const [chain,typeDetails]=await Promise.all([json(species.evolution_chain.url),Promise.all(pokemon.types.map(t=>json(t.type.url)))]);
+    const pokemon=await json(`${API}/pokemon/${encodeURIComponent(p.name)}`);
+    const species=await json(pokemon.species.url);
+    const chain=species.evolution_chain?.url ? await json(species.evolution_chain.url) : null;
+    const typeDetails=await Promise.all((pokemon.types||[]).map(t=>json(t.type.url)));
     return {pokemon,species,chain,typeDetails};
   }
   function englishFlavor(species){const entries=species.flavor_text_entries.filter(x=>x.language.name==='en');return (entries.find(x=>x.version.name==='scarlet')||entries.find(x=>x.version.name==='violet')||entries[0])?.flavor_text.replace(/[\n\f]/g,' ')||'No Pokédex description available.'}
   function englishGenus(species){return species.genera.find(x=>x.language.name==='en')?.genus||''}
-  function flattenChain(node,out=[]){if(!node)return out;out.push(node.species.name);(node.evolves_to||[]).forEach(x=>flattenChain(x,out));return out}
-  function renderTypes(types){els.types.innerHTML='';types.forEach(t=>{const s=document.createElement('span');s.className='type';s.textContent=t.type.name;s.style.background=typeColors[t.type.name]||'#777';els.types.appendChild(s)})}
-  function renderStats(stats){els.stats.innerHTML='';stats.forEach(s=>{const row=document.createElement('div');row.className='stat';const name=document.createElement('div');name.className='stat-name';name.textContent=statLabels[s.stat.name]||pretty(s.stat.name);const val=document.createElement('div');val.className='stat-value';val.textContent=s.base_stat;const wrap=document.createElement('div');wrap.className='bar';const bar=document.createElement('i');bar.style.width=Math.min(100,s.base_stat/180*100)+'%';wrap.appendChild(bar);row.append(name,val,wrap);els.stats.appendChild(row)})}
-  function renderWeaknesses(details){const mult={};details.forEach(d=>d.damage_relations.double_damage_from.forEach(t=>mult[t.name]=(mult[t.name]||1)*2));const arr=Object.entries(mult).filter(([,v])=>v>1).sort((a,b)=>b[1]-a[1]);els.weaknesses.innerHTML='';arr.forEach(([name,m])=>{const x=document.createElement('span');x.className='weak';x.textContent=`${pretty(name)} ×${m}`;els.weaknesses.appendChild(x)});if(!arr.length)els.weaknesses.innerHTML='<span class="weak">No major weaknesses</span>'}
-  function renderEvolution(chain){const names=flattenChain(chain);els.evolution.innerHTML='';names.forEach((name,i)=>{const wrap=document.createElement('div');wrap.className='evo-item';const img=document.createElement('img');img.src=`https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/${awaitableId(name)}.png`;img.alt=pretty(name);img.loading='lazy';const label=document.createElement('strong');label.textContent=pretty(name);wrap.append(img,label);els.evolution.appendChild(wrap);if(i<names.length-1){const a=document.createElement('span');a.className='evo-arrow';a.textContent='→';els.evolution.appendChild(a)}})}
-  function awaitableId(name){const p=list.find(x=>x.name===name);return p?p.id:name}
-  async function ensureIds(names){await loadList();return names.map(n=>({name:n,id:list.find(p=>p.name===n)?.id||0}))}
-  async function renderEvolutionAsync(chain){const nodes=flattenChain(chain);const withIds=await ensureIds(nodes);els.evolution.innerHTML='';withIds.forEach((x,i)=>{const wrap=document.createElement('div');wrap.className='evo-item';const img=document.createElement('img');img.src=`https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/${x.id||x.name}.png`;img.alt=pretty(x.name);img.loading='lazy';const label=document.createElement('strong');label.textContent=pretty(x.name);wrap.append(img,label);els.evolution.appendChild(wrap);if(i<nodes.length-1){const a=document.createElement('span');a.className='evo-arrow';a.textContent='→';els.evolution.appendChild(a)}})}
+  function flattenChain(node,out=[]){
+    if(!node) return out;
+    if(node.species?.name){
+      const match=node.species.url?.match(/\/(\d+)\/?$/);
+      out.push({name:node.species.name,id:match?Number(match[1]):null});
+    }
+    (node.evolves_to||[]).forEach(x=>flattenChain(x,out));
+    return out;
+  }
+  function renderTypes(types){els.types.innerHTML='';(types||[]).forEach(t=>{const name=t?.type?.name;if(!name)return;const s=document.createElement('span');s.className='type';s.textContent=name;s.style.background=typeColors[name]||'#777';els.types.appendChild(s)})}
+  function renderStats(stats){els.stats.innerHTML='';(stats||[]).forEach(s=>{const statName=s?.stat?.name;if(!statName)return;const row=document.createElement('div');row.className='stat';const name=document.createElement('div');name.className='stat-name';name.textContent=statLabels[statName]||pretty(statName);const val=document.createElement('div');val.className='stat-value';val.textContent=s.base_stat??'—';const wrap=document.createElement('div');wrap.className='bar';const bar=document.createElement('i');bar.style.width=Math.min(100,(s.base_stat||0)/180*100)+'%';wrap.appendChild(bar);row.append(name,val,wrap);els.stats.appendChild(row)})}
+  function renderWeaknesses(details){const mult={};(details||[]).forEach(d=>(d?.damage_relations?.double_damage_from||[]).forEach(t=>{if(t?.name)mult[t.name]=(mult[t.name]||1)*2}));const arr=Object.entries(mult).filter(([,v])=>v>1).sort((a,b)=>b[1]-a[1]);els.weaknesses.innerHTML='';arr.forEach(([name,m])=>{const x=document.createElement('span');x.className='weak';x.textContent=`${pretty(name)} ×${m}`;els.weaknesses.appendChild(x)});if(!arr.length)els.weaknesses.innerHTML='<span class="weak">No major weaknesses</span>'}
+  function renderEvolution(chain){
+    const nodes=flattenChain(chain);
+    els.evolution.innerHTML='';
+    if(!nodes.length){els.evolution.innerHTML='<span class="weak">No evolution data available</span>';return;}
+    nodes.forEach((x,i)=>{const wrap=document.createElement('div');wrap.className='evo-item';const img=document.createElement('img');img.src=x.id?`https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/${x.id}.png`:`https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${encodeURIComponent(x.name)}.png`;img.alt=pretty(x.name);img.loading='lazy';const label=document.createElement('strong');label.textContent=pretty(x.name);wrap.append(img,label);els.evolution.appendChild(wrap);if(i<nodes.length-1){const a=document.createElement('span');a.className='evo-arrow';a.textContent='→';els.evolution.appendChild(a)}});
+  }
 
   async function showPokemon(p,source='typed'){
     selected=p;els.pokedex.classList.add('show');els.entry.hidden=true;els.loading.hidden=false;setStatus(source==='ocr'?'Loading the scanned Pokémon…':'Loading Pokédex entry…');
     try{
       const data=await loadEntry(p),{pokemon,species,chain,typeDetails}=data;
       els.number.textContent=`#${String(pokemon.id).padStart(4,'0')}`;els.heroName.textContent=pretty(pokemon.name);els.genus.textContent=englishGenus(species);els.art.src=pokemon.sprites.other?.['official-artwork']?.front_default||pokemon.sprites.front_default;els.art.alt=pretty(pokemon.name);renderTypes(pokemon.types);els.description.textContent=englishFlavor(species);els.height.textContent=`${(pokemon.height/10).toFixed(1)} m`;els.weight.textContent=`${(pokemon.weight/10).toFixed(1)} kg`;els.category.textContent=englishGenus(species).replace(/ Pokémon$/i,'')||'Pokémon';els.generation.textContent=pretty(species.generation.name.replace('generation-','Gen '));
-      els.abilities.innerHTML='';pokemon.abilities.forEach(a=>{const x=document.createElement('div');x.className='ability';x.innerHTML=`${pretty(a.ability.name)}${a.is_hidden?' <small>(Hidden)</small>':''}`;els.abilities.appendChild(x)});renderStats(pokemon.stats);renderWeaknesses(typeDetails);await renderEvolutionAsync(chain);
+      els.abilities.innerHTML='';(pokemon.abilities||[]).forEach(a=>{const name=a?.ability?.name;if(!name)return;const x=document.createElement('div');x.className='ability';x.innerHTML=`${pretty(name)}${a.is_hidden?' <small>(Hidden)</small>':''}`;els.abilities.appendChild(x)});renderStats(pokemon.stats);renderWeaknesses(typeDetails);renderEvolution(chain);
       const id=pokemon.id;els.prev.disabled=id<=1;els.next.disabled=id>=1025;els.prev.onclick=()=>navigate(id-1);els.next.onclick=()=>navigate(id+1);els.official.onclick=()=>window.open(officialUrl(pokemon.name),'_blank','noopener');els.entry.hidden=false;els.loading.hidden=true;els.search.value=pretty(pokemon.name);setStatus(source==='ocr'?`OCR matched ${pretty(pokemon.name)}.`:'Pokédex entry loaded.','success');saveRecent(p);window.scrollTo({top:0,behavior:'smooth'});
     }catch(e){
       console.error('Pokédex load failed:',e);
@@ -102,7 +114,7 @@
       setStatus(`Could not load this Pokédex entry${detail}. Check your connection and try again.`,'error');
     }
   }
-  async function navigate(id){const p=list.find(x=>x.id===id);if(p)showPokemon(p)}
+  async function navigate(id){if(id<1||id>1025)return;try{const p=await json(`${API}/pokemon/${id}`);await showPokemon({name:p.name,id:p.id,normalized:normalize(p.name)})}catch(e){setStatus(`Could not load Pokémon #${id}.`,'error')}}
   async function search(v,source='typed'){const raw=String(v||'').trim();if(!raw){setStatus('Enter a Pokémon name or number.','error');return}setStatus('Finding Pokémon…');try{const p=await findPokemon(raw);if(!p)throw Error();await showPokemon(p,source)}catch{setStatus(`I couldn't match “${raw}” to a Pokémon.`,'error')}}
 
   function getRecent(){try{return JSON.parse(localStorage.getItem('pokemon-recent')||'[]')}catch{return[]}}
@@ -112,5 +124,5 @@
   async function openScanner(){els.modal.classList.add('show');els.scanBox.textContent='Take a photo of a Pokémon name or choose an existing image. Good lighting and clear text work best.';els.progress.classList.remove('show');els.progressBar.style.width='0%';els.runAgain.hidden=true}
   async function runOCR(file){els.preview.src=URL.createObjectURL(file);els.preview.classList.add('show');els.progress.classList.add('show');els.scanBox.textContent='Reading text from image…';els.choose.disabled=true;try{if(!worker)worker=await Tesseract.createWorker('eng',1,{logger:m=>{if(m.status==='recognizing text')els.progressBar.style.width=Math.round((m.progress||0)*100)+'%'}});const {data}=await worker.recognize(file);const text=(data.text||'').trim();els.scanBox.textContent=text?`Detected: “${text}”`:'No readable text found.';if(text){await search(text,'ocr');els.modal.classList.remove('show')}}catch(e){console.error(e);els.scanBox.textContent='OCR failed. Try a clearer photo.'}finally{els.choose.disabled=false;els.runAgain.hidden=false;els.progress.classList.remove('show')}}
 
-  els.form.addEventListener('submit',e=>{e.preventDefault();search(els.search.value)});els.camera.addEventListener('click',openScanner);els.close.addEventListener('click',()=>els.modal.classList.remove('show'));els.choose.addEventListener('click',()=>els.input.click());els.input.addEventListener('change',e=>{if(e.target.files?.[0])runOCR(e.target.files[0])});els.runAgain.addEventListener('click',()=>els.input.click());els.modal.addEventListener('click',e=>{if(e.target===els.modal)els.modal.classList.remove('show')});document.querySelectorAll('.chip').forEach(b=>b.addEventListener('click',()=>search(b.dataset.name)));renderRecent();loadList().then(()=>setStatus('Ready. Search for a Pokémon or scan one with the camera.','success')).catch(()=>setStatus('Ready.','success'));
+  els.form.addEventListener('submit',e=>{e.preventDefault();search(els.search.value)});els.camera.addEventListener('click',openScanner);els.close.addEventListener('click',()=>els.modal.classList.remove('show'));els.choose.addEventListener('click',()=>els.input.click());els.input.addEventListener('change',e=>{if(e.target.files?.[0])runOCR(e.target.files[0])});els.runAgain.addEventListener('click',()=>els.input.click());els.modal.addEventListener('click',e=>{if(e.target===els.modal)els.modal.classList.remove('show')});document.querySelectorAll('.chip').forEach(b=>b.addEventListener('click',()=>search(b.dataset.name)));renderRecent();setStatus('Ready. Search for a Pokémon or scan one with the camera.','success');
 })();
