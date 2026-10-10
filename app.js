@@ -5,7 +5,7 @@
   const $ = id => document.getElementById(id);
   const els = {
     search:$('search'), form:$('searchForm'), status:$('status'), pokedex:$('pokedex'), entry:$('entry'), loading:$('loadingCard'),
-    number:$('number'), heroName:$('heroName'), genus:$('genus'), art:$('art'), types:$('types'), description:$('description'),
+    number:$('number'), heroName:$('heroName'), genus:$('genus'), classification:$('classification'), art:$('art'), types:$('types'), description:$('description'),
     height:$('height'), weight:$('weight'), category:$('category'), generation:$('generation'), abilities:$('abilities'), stats:$('stats'),
     weaknesses:$('weaknesses'), strengths:$('strengths'), evolution:$('evolution'), prev:$('prevButton'), next:$('nextButton'), official:$('officialButton'),
     formPickerWrap:$('formPickerWrap'), formSelector:$('formSelector')
@@ -268,6 +268,21 @@
       els.number.textContent=`#${String(displayId).padStart(4,'0')}`;
       els.heroName.textContent=pretty(pokemon.name);
       els.genus.textContent=englishGenus(species);
+      const pseudos = ['dragonite', 'tyranitar', 'salamence', 'metagross', 'garchomp', 'hydreigon', 'goodra', 'kommo-o', 'dragapult', 'baxcalibur'];
+      const pseudoMythicals = ['phione']; 
+      
+      let classText = '';
+      if (species.is_mythical) classText = 'Mythical';
+      else if (species.is_legendary) classText = 'Legendary';
+      else if (pseudos.includes(species.name)) classText = 'Pseudo-Legendary';
+      else if (pseudoMythicals.includes(species.name)) classText = 'Pseudo-Mythical';
+
+      if (classText) {
+        els.classification.textContent = classText;
+        els.classification.classList.add('show');
+      } else {
+        els.classification.classList.remove('show');
+      }
       els.art.src=pokemon.sprites.other?.['official-artwork']?.front_default||pokemon.sprites.front_default;
       els.art.alt=pretty(pokemon.name);
       renderTypes(pokemon.types);
