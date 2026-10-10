@@ -7,7 +7,7 @@
     search:$('search'), form:$('searchForm'), status:$('status'), pokedex:$('pokedex'), entry:$('entry'), loading:$('loadingCard'),
     number:$('number'), heroName:$('heroName'), genus:$('genus'), art:$('art'), types:$('types'), description:$('description'),
     height:$('height'), weight:$('weight'), category:$('category'), generation:$('generation'), abilities:$('abilities'), stats:$('stats'),
-    weaknesses:$('weaknesses'), evolution:$('evolution'), prev:$('prevButton'), next:$('nextButton'), official:$('officialButton'),
+    weaknesses:$('weaknesses'), strengths:$('strengths'), evolution:$('evolution'), prev:$('prevButton'), next:$('nextButton'), official:$('officialButton'),
     formPickerWrap:$('formPickerWrap'), formSelector:$('formSelector')
   };
   let list = [], selected = null, loadingList = null;
@@ -172,7 +172,34 @@
   }
   function renderTypes(types){els.types.innerHTML='';(types||[]).forEach(t=>{const name=t?.type?.name;if(!name)return;const s=document.createElement('span');s.className='type';s.textContent=name;s.style.background=typeColors[name]||'#777';els.types.appendChild(s)})}
   function renderStats(stats){els.stats.innerHTML='';(stats||[]).forEach(s=>{const statName=s?.stat?.name;if(!statName)return;const row=document.createElement('div');row.className='stat';const name=document.createElement('div');name.className='stat-name';name.textContent=statLabels[statName]||pretty(statName);const val=document.createElement('div');val.className='stat-value';val.textContent=s.base_stat??'—';const wrap=document.createElement('div');wrap.className='bar';const bar=document.createElement('i');bar.style.width=Math.min(100,(s.base_stat||0)/180*100)+'%';wrap.appendChild(bar);row.append(name,val,wrap);els.stats.appendChild(row)})}
-  function renderWeaknesses(details){const mult={};(details||[]).forEach(d=>(d?.damage_relations?.double_damage_from||[]).forEach(t=>{if(t?.name)mult[t.name]=(mult[t.name]||1)*2}));const arr=Object.entries(mult).filter(([,v])=>v>1).sort((a,b)=>b[1]-a[1]);els.weaknesses.innerHTML='';arr.forEach(([name,m])=>{const x=document.createElement('span');x.className='weak';x.textContent=`${pretty(name)} ×${m}`;x.style.background=typeColors[name]||'#777';x.style.color='#fff';x.style.textShadow='0 1px 1px #0005';els.weaknesses.appendChild(x)});if(!arr.length)els.weaknesses.innerHTML='<span class="weak">No major weaknesses</span>'}
+  function renderMatchups(details) {
+    const mult = {};
+    (details || []).forEach(d => {
+      (d?.damage_relations?.double_damage_from || []).forEach(t => { if (t?.name) mult[t.name] = (mult[t.name] !== undefined ? mult[t.name] : 1) * 2; });
+      (d?.damage_relations?.half_damage_from || []).forEach(t => { if (t?.name) mult[t.name] = (mult[t.name] !== undefined ? mult[t.name] : 1) * 0.5; });
+      (d?.damage_relations?.no_damage_from || []).forEach(t => { if (t?.name) mult[t.name] = 0; });
+    });
+
+    const weakArr = Object.entries(mult).filter(([, v]) => v > 1).sort((a, b) => b[1] - a[1]);
+    els.weaknesses.innerHTML = '';
+    weakArr.forEach(([name, m]) => {
+      const x = document.createElement('span'); x.className = 'weak'; x.textContent = `${pretty(name)} ×${m}`;
+      x.style.background = typeColors[name] || '#777';
+      x.style.color = '#fff'; x.style.textShadow = '0 1px 1px #0005';
+      els.weaknesses.appendChild(x);
+    });
+    if (!weakArr.length) els.weaknesses.innerHTML = '<span class="weak" style="background:#f2f2f2;color:#777;text-shadow:none">No major weaknesses</span>';
+
+    const strArr = Object.entries(mult).filter(([, v]) => v < 1).sort((a, b) => a[1] - b[1]);
+    els.strengths.innerHTML = '';
+    strArr.forEach(([name, m]) => {
+      const x = document.createElement('span'); x.className = 'strength'; x.textContent = `${pretty(name)} ×${m}`;
+      x.style.background = typeColors[name] || '#777';
+      x.style.color = '#fff'; x.style.textShadow = '0 1px 1px #0005';
+      els.strengths.appendChild(x);
+    });
+    if (!strArr.length) els.strengths.innerHTML = '<span class="strength" style="background:#f2f2f2;color:#777;text-shadow:none">No major strengths</span>';
+  }
   
   function renderEvolution(chain){
     const root=chain?.chain || chain;
@@ -253,7 +280,7 @@
         els.abilities.appendChild(x);
       });
       renderStats(pokemon.stats);
-      renderWeaknesses(typeDetails);
+      renderMatchups(typeDetails);
       renderEvolution(chain);
 
       els.prev.disabled=displayId<=1;
