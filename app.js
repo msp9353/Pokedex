@@ -8,6 +8,7 @@
     number:$('number'), heroName:$('heroName'), genus:$('genus'), art:$('art'), types:$('types'), description:$('description'),
     height:$('height'), weight:$('weight'), category:$('category'), generation:$('generation'), abilities:$('abilities'), stats:$('stats'),
     weaknesses:$('weaknesses'), evolution:$('evolution'), prev:$('prevButton'), next:$('nextButton'), official:$('officialButton'),
+    formPickerWrap:$('formPickerWrap'), formSelector:$('formSelector')
   };
   let list = [], selected = null, loadingList = null;
 
@@ -39,16 +40,24 @@
     if(!raw)return null;
     const s=slug(raw),n=normalize(raw);
 
-    // Fast path: ask PokéAPI directly. This avoids requiring the large
-    // 1,000+ Pokémon list to load before a normal search can work.
+    // 1. Check direct pokemon endpoint
     if(!/^\d{1,4}$/.test(raw)){
       try{
         const direct=await json(`${API}/pokemon/${encodeURIComponent(s)}`);
         return {name:direct.name,id:direct.id,normalized:normalize(direct.name)};
       }catch{}
+
+      // 2. Fallback: check species endpoint for base forms (e.g. "deoxys", "giratina")
+      try{
+        const speciesData=await json(`${API}/pokemon-species/${encodeURIComponent(s)}`);
+        if(speciesData?.varieties?.length){
+          const defVar=speciesData.varieties.find(v=>v.is_default)||speciesData.varieties[0];
+          return {name:defVar.pokemon.name,id:speciesData.id,normalized:normalize(defVar.pokemon.name)};
+        }
+      }catch{}
     }
 
-    // Fallback for numbers, OCR misspellings, and alternate spellings.
+    // 3. Fallback to list search and fuzzy matching
     const data=await loadList();
     if(!data.length) return null;
     if(/^\d{1,4}$/.test(raw)){
@@ -57,6 +66,11 @@
     }
     const exact=data.find(x=>x.name===s||x.normalized===n);
     if(exact)return exact;
+
+    // Try finding by prefix for multi-form pokemon (e.g. typing "deoxys" matches "deoxys-normal")
+    const prefixMatch=data.find(x=>x.name.startsWith(s+'-'));
+    if(prefixMatch)return prefixMatch;
+
     let best=null;
     for(const p of data){
       const d=levenshtein(n,p.normalized),ratio=1-d/Math.max(n.length,p.normalized.length);
@@ -79,6 +93,37 @@
     const typeDetails=await Promise.all((pokemon.types||[]).map(t=>json(t.type.url)));
     return {pokemon,species,chain,typeDetails};
   }
+
+  function formatFormName(varietyName, baseSpeciesName){
+    if (varietyName === baseSpeciesName) return 'Standard / Base';
+    let label = varietyName.replace(baseSpeciesName + '-', '');
+    return pretty(label);
+  }
+
+  function renderFormSelector(species, currentPokemonName){
+    if(!els.formSelector || !els.formPickerWrap) return;
+    const varieties = species?.varieties || [];
+    if(varieties.length <= 1){
+      els.formPickerWrap.hidden = true;
+      els.formSelector.innerHTML = '';
+      return;
+    }
+
+    els.formSelector.innerHTML = '';
+    varieties.forEach(v => {
+      const opt = document.createElement('option');
+      opt.value = v.pokemon.name;
+      opt.textContent = formatFormName(v.pokemon.name, species.name);
+      if(v.pokemon.name === currentPokemonName) opt.selected = true;
+      els.formSelector.appendChild(opt);
+    });
+
+    els.formSelector.onchange = (e) => {
+      showPokemon({ name: e.target.value });
+    };
+    els.formPickerWrap.hidden = false;
+  }
+  
   function englishFlavor(species){const entries=species.flavor_text_entries.filter(x=>x.language.name==='en');return (entries.find(x=>x.version.name==='scarlet')||entries.find(x=>x.version.name==='violet')||entries[0])?.flavor_text.replace(/[\n\f]/g,' ')||'No Pokédex description available.'}
   function englishGenus(species){return species.genera.find(x=>x.language.name==='en')?.genus||''}
   function flattenChain(node,out=[],seen=new Set()){
@@ -140,9 +185,41 @@
     selected=p;els.pokedex.classList.add('show');els.entry.hidden=true;els.loading.hidden=false;setStatus('Loading Pokédex entry…');
     try{
       const data=await loadEntry(p),{pokemon,species,chain,typeDetails}=data;
-      els.number.textContent=`#${String(pokemon.id).padStart(4,'0')}`;els.heroName.textContent=pretty(pokemon.name);els.genus.textContent=englishGenus(species);els.art.src=pokemon.sprites.other?.['official-artwork']?.front_default||pokemon.sprites.front_default;els.art.alt=pretty(pokemon.name);renderTypes(pokemon.types);els.description.textContent=englishFlavor(species);els.height.textContent=`${(pokemon.height/10).toFixed(1)} m`;els.weight.textContent=`${(pokemon.weight/10).toFixed(1)} kg`;els.category.textContent=englishGenus(species).replace(/ Pokémon$/i,'')||'Pokémon';els.generation.textContent=pretty(species.generation.name.replace('generation-','Gen '));
-      els.abilities.innerHTML='';(pokemon.abilities||[]).forEach(a=>{const name=a?.ability?.name;if(!name)return;const x=document.createElement('div');x.className='ability';x.innerHTML=`${pretty(name)}${a.is_hidden?' <small>(Hidden)</small>':''}`;els.abilities.appendChild(x)});renderStats(pokemon.stats);renderWeaknesses(typeDetails);renderEvolution(chain);
-      const id=pokemon.id;els.prev.disabled=id<=1;els.next.disabled=id>=1025;els.prev.onclick=()=>navigate(id-1);els.next.onclick=()=>navigate(id+1);els.official.onclick=()=>window.open(officialUrl(pokemon.name),'_blank','noopener');els.entry.hidden=false;els.loading.hidden=true;els.search.value=pretty(pokemon.name);setStatus('Pokédex entry loaded.','success');window.scrollTo({top:0,behavior:'smooth'});
+      const displayId = species.id || pokemon.id;
+      els.number.textContent=`#${String(displayId).padStart(4,'0')}`;
+      els.heroName.textContent=pretty(pokemon.name);
+      els.genus.textContent=englishGenus(species);
+      els.art.src=pokemon.sprites.other?.['official-artwork']?.front_default||pokemon.sprites.front_default;
+      els.art.alt=pretty(pokemon.name);
+      renderTypes(pokemon.types);
+      renderFormSelector(species, pokemon.name);
+      els.description.textContent=englishFlavor(species);
+      els.height.textContent=`${(pokemon.height/10).toFixed(1)} m`;
+      els.weight.textContent=`${(pokemon.weight/10).toFixed(1)} kg`;
+      els.category.textContent=englishGenus(species).replace(/ Pokémon$/i,'')||'Pokémon';
+      els.generation.textContent=pretty(species.generation.name.replace('generation-','Gen '));
+      els.abilities.innerHTML='';
+      (pokemon.abilities||[]).forEach(a=>{
+        const name=a?.ability?.name;
+        if(!name)return;
+        const x=document.createElement('div');
+        x.className='ability';
+        x.innerHTML=`${pretty(name)}${a.is_hidden?' <small>(Hidden)</small>':''}`;
+        els.abilities.appendChild(x);
+      });
+      renderStats(pokemon.stats);
+      renderWeaknesses(typeDetails);
+      renderEvolution(chain);
+
+      els.prev.disabled=displayId<=1;
+      els.next.disabled=displayId>=1025;
+      els.prev.onclick=()=>navigate(displayId-1);
+      els.next.onclick=()=>navigate(displayId+1);
+      els.official.onclick=()=>window.open(officialUrl(species.name||pokemon.name),'_blank','noopener');
+      els.entry.hidden=false;
+      els.loading.hidden=true;
+      setStatus('Pokédex entry loaded.','success');
+      window.scrollTo({top:0,behavior:'smooth'});
     }catch(e){
       console.error('Pokédex load failed:',e);
       els.loading.hidden=true;
@@ -150,7 +227,22 @@
       setStatus(`Could not load this Pokédex entry${detail}. Check your connection and try again.`,'error');
     }
   }
-  async function navigate(id){if(id<1||id>1025)return;try{const p=await json(`${API}/pokemon/${id}`);await showPokemon({name:p.name,id:p.id,normalized:normalize(p.name)})}catch(e){setStatus(`Could not load Pokémon #${id}.`,'error')}}
+
+  async function navigate(id){
+    if(id<1||id>1025)return;
+    try{
+      const spec = await json(`${API}/pokemon-species/${id}`);
+      const defVar = spec.varieties.find(v => v.is_default) || spec.varieties[0];
+      await showPokemon({ name: defVar.pokemon.name });
+    }catch{
+      try{
+        const p = await json(`${API}/pokemon/${id}`);
+        await showPokemon({ name: p.name, id: p.id });
+      }catch(e){
+        setStatus(`Could not load Pokémon #${id}.`,'error');
+      }
+    }
+  }
   async function search(v,source='typed'){const raw=String(v||'').trim();if(!raw){setStatus('Enter a Pokémon name or number.','error');return}setStatus('Finding Pokémon…');try{const p=await findPokemon(raw);if(!p)throw Error();await showPokemon(p,source)}catch{setStatus(`I couldn't match “${raw}” to a Pokémon.`,'error')}}
   
   els.form.addEventListener('submit', e => {
