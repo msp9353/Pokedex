@@ -113,7 +113,7 @@
     if(!els.formSelector || !els.formPickerWrap) return;
     const varieties = species?.varieties || [];
     if(varieties.length <= 1){
-      els.formPickerWrap.hidden = true;
+      els.formPickerWrap.style.display = 'none';
       els.formSelector.innerHTML = '';
       return;
     }
@@ -130,7 +130,7 @@
     els.formSelector.onchange = (e) => {
       showPokemon({ name: e.target.value });
     };
-    els.formPickerWrap.hidden = false;
+    els.formPickerWrap.style.display = 'flex';
   }
   
   function englishFlavor(species){const entries=species.flavor_text_entries.filter(x=>x.language.name==='en');return (entries.find(x=>x.version.name==='scarlet')||entries.find(x=>x.version.name==='violet')||entries[0])?.flavor_text.replace(/[\n\f]/g,' ')||'No Pokédex description available.'}
