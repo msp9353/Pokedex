@@ -67,14 +67,23 @@
     const exact=data.find(x=>x.name===s||x.normalized===n);
     if(exact)return exact;
 
-    // Try finding by prefix for multi-form pokemon (e.g. typing "deoxys" matches "deoxys-normal")
     const prefixMatch=data.find(x=>x.name.startsWith(s+'-'));
     if(prefixMatch)return prefixMatch;
 
     let best=null;
     for(const p of data){
       const d=levenshtein(n,p.normalized),ratio=1-d/Math.max(n.length,p.normalized.length);
-      if(!best||ratio>best.ratio)best={p,ratio};
+      let maxRatio = ratio;
+      
+      // Allow fuzzy matching against the base name for alternate forms
+      if(p.name.includes('-')){
+        const base = normalize(p.name.split('-')[0]);
+        const dBase = levenshtein(n, base);
+        const ratioBase = 1 - dBase / Math.max(n.length, base.length);
+        if(ratioBase > maxRatio) maxRatio = ratioBase;
+      }
+      
+      if(!best||maxRatio>best.ratio)best={p,ratio:maxRatio};
     }
     return best&&best.ratio>=(best.p.normalized.length<=5?.68:.62)?best.p:null;
   }
