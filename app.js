@@ -135,24 +135,45 @@
   
   function englishFlavor(species){const entries=species.flavor_text_entries.filter(x=>x.language.name==='en');return (entries.find(x=>x.version.name==='scarlet')||entries.find(x=>x.version.name==='violet')||entries[0])?.flavor_text.replace(/[\n\f]/g,' ')||'No Pokédex description available.'}
   function englishGenus(species){return species.genera.find(x=>x.language.name==='en')?.genus||''}
-  function flattenChain(node,out=[],seen=new Set()){
+  function formatEvo(details){
+    if(!details||!details.length)return '';
+    const d = details[0];
+    const trigger = d.trigger?.name;
+    if(trigger === 'level-up'){
+      if(d.min_level) return `Lvl ${d.min_level}`;
+      if(d.min_happiness) return `Friendship`;
+      if(d.known_move) return `Know ${pretty(d.known_move.name)}`;
+      if(d.location) return `At ${pretty(d.location.name)}`;
+      if(d.time_of_day) return `Day/Night`;
+      return `Level Up`;
+    }
+    if(trigger === 'use-item' && d.item) return pretty(d.item.name);
+    if(trigger === 'trade'){
+      if(d.held_item) return `Trade w/ ${pretty(d.held_item.name)}`;
+      return `Trade`;
+    }
+    return pretty(trigger||'');
+  }
+
+  function flattenChain(node,out=[],seen=new Set(),evoDetails=null){
     if(!node) return out;
     const name=node.species?.name;
     const url=node.species?.url || '';
-    const match=url.match(/\/pokemon-species\/(\d+)\/?$/) || url.match(/\/(\d+)\/?$/);
+    const match=url.match(/\/pokemon-species\/(\d+)\/?$/) \vert{}\vert{} url.match(/\/(\d+)\/?$/);
     const id=match ? Number(match[1]) : null;
     if(name && !seen.has(name)){
       seen.add(name);
-      out.push({name,id});
+      out.push({name,id,details:evoDetails});
     }
     for(const next of (Array.isArray(node.evolves_to) ? node.evolves_to : [])){
-      flattenChain(next,out,seen);
+      flattenChain(next,out,seen,next.evolution_details);
     }
     return out;
   }
   function renderTypes(types){els.types.innerHTML='';(types||[]).forEach(t=>{const name=t?.type?.name;if(!name)return;const s=document.createElement('span');s.className='type';s.textContent=name;s.style.background=typeColors[name]||'#777';els.types.appendChild(s)})}
   function renderStats(stats){els.stats.innerHTML='';(stats||[]).forEach(s=>{const statName=s?.stat?.name;if(!statName)return;const row=document.createElement('div');row.className='stat';const name=document.createElement('div');name.className='stat-name';name.textContent=statLabels[statName]||pretty(statName);const val=document.createElement('div');val.className='stat-value';val.textContent=s.base_stat??'—';const wrap=document.createElement('div');wrap.className='bar';const bar=document.createElement('i');bar.style.width=Math.min(100,(s.base_stat||0)/180*100)+'%';wrap.appendChild(bar);row.append(name,val,wrap);els.stats.appendChild(row)})}
   function renderWeaknesses(details){const mult={};(details||[]).forEach(d=>(d?.damage_relations?.double_damage_from||[]).forEach(t=>{if(t?.name)mult[t.name]=(mult[t.name]||1)*2}));const arr=Object.entries(mult).filter(([,v])=>v>1).sort((a,b)=>b[1]-a[1]);els.weaknesses.innerHTML='';arr.forEach(([name,m])=>{const x=document.createElement('span');x.className='weak';x.textContent=`${pretty(name)} ×${m}`;x.style.background=typeColors[name]||'#777';x.style.color='#fff';x.style.textShadow='0 1px 1px #0005';els.weaknesses.appendChild(x)});if(!arr.length)els.weaknesses.innerHTML='<span class="weak">No major weaknesses</span>'}
+  
   function renderEvolution(chain){
     const root=chain?.chain || chain;
     const nodes=flattenChain(root);
@@ -178,15 +199,30 @@
       els.evolution.appendChild(wrap);
 
       if(i<nodes.length-1){
-        const a=document.createElement('span');
-        a.className='evo-arrow';
-        a.textContent='→';
-        a.setAttribute('aria-hidden','true');
-        els.evolution.appendChild(a);
+        const arrowWrap = document.createElement('div');
+        arrowWrap.className = 'evo-arrow-wrap';
+        
+        const a = document.createElement('span');
+        a.className = 'evo-arrow';
+        a.textContent = '→';
+        a.setAttribute('aria-hidden', 'true');
+        arrowWrap.appendChild(a);
+
+        const nextNode = nodes[i+1];
+        if(nextNode && nextNode.details) {
+          const detailText = formatEvo(nextNode.details);
+          if (detailText) {
+            const detailSpan = document.createElement('span');
+            detailSpan.className = 'evo-detail';
+            detailSpan.textContent = detailText;
+            arrowWrap.appendChild(detailSpan);
+          }
+        }
+        
+        els.evolution.appendChild(arrowWrap);
       }
     });
 
-    // Always start at the beginning so the first Pokémon is visible.
     els.evolution.scrollLeft=0;
   }
 
