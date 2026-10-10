@@ -159,7 +159,7 @@
     if(!node) return out;
     const name=node.species?.name;
     const url=node.species?.url || '';
-    const match=url.match(/\/pokemon-species\/(\d+)\/?$/) \vert{}\vert{} url.match(/\/(\d+)\/?$/);
+    const match=url.match(/\/pokemon-species\/(\d+)\/?$/) || url.match(/\/(\d+)\/?$/);
     const id=match ? Number(match[1]) : null;
     if(name && !seen.has(name)){
       seen.add(name);
