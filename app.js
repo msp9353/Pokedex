@@ -8,9 +8,22 @@
     number:$('number'), heroName:$('heroName'), genus:$('genus'), classification:$('classification'), art:$('art'), types:$('types'), description:$('description'),
     height:$('height'), weight:$('weight'), category:$('category'), generation:$('generation'), abilities:$('abilities'), stats:$('stats'),
     weaknesses:$('weaknesses'), strengths:$('strengths'), evolution:$('evolution'), prev:$('prevButton'), next:$('nextButton'), official:$('officialButton'),
-    formPickerWrap:$('formPickerWrap'), formSelector:$('formSelector')
+    formPickerWrap:$('formPickerWrap'), formSelector:$('formSelector'), themeToggle:$('themeToggle')
   };
   let list = [], selected = null, loadingList = null;
+
+  const currentTheme = localStorage.getItem('theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+  if (currentTheme === 'dark') {
+    document.body.classList.add('dark-mode');
+    els.themeToggle.textContent = '☀️';
+  }
+
+  els.themeToggle.addEventListener('click', () => {
+    document.body.classList.toggle('dark-mode');
+    const isDark = document.body.classList.contains('dark-mode');
+    localStorage.setItem('theme', isDark ? 'dark' : 'light');
+    els.themeToggle.textContent = isDark ? '☀️' : '🌙';
+  });
 
   const aliases = new Map([
     ['mr mime','mr-mime'],['mrmime','mr-mime'],['mime jr','mime-jr'],['mimejr','mime-jr'],['farfetchd','farfetchd'],["farfetch'd",'farfetchd'],
