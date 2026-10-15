@@ -304,7 +304,7 @@
       els.height.textContent=`${(pokemon.height/10).toFixed(1)} m`;
       els.weight.textContent=`${(pokemon.weight/10).toFixed(1)} kg`;
       els.category.textContent=englishGenus(species).replace(/ Pokémon$/i,'')||'Pokémon';
-      els.generation.textContent=pretty(species.generation.name.replace('generation-','Gen '));
+      els.generation.textContent = 'Gen ' + species.generation.name.replace('generation-', '').toUpperCase();
       els.abilities.innerHTML='';
       (pokemon.abilities||[]).forEach(a=>{
         const name=a?.ability?.name;
