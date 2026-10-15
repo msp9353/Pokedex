@@ -8,9 +8,39 @@
     number:$('number'), heroName:$('heroName'), genus:$('genus'), classification:$('classification'), art:$('art'), types:$('types'), description:$('description'),
     height:$('height'), weight:$('weight'), category:$('category'), generation:$('generation'), abilities:$('abilities'), stats:$('stats'),
     weaknesses:$('weaknesses'), strengths:$('strengths'), evolution:$('evolution'), prev:$('prevButton'), next:$('nextButton'), official:$('officialButton'),
-    formPickerWrap:$('formPickerWrap'), formSelector:$('formSelector'), themeToggle:$('themeToggle')
+    formPickerWrap:$('formPickerWrap'), formSelector:$('formSelector'), themeToggle:$('themeToggle'),
+    recent:$('recent'), recentList:$('recentList')
   };
   let list = [], selected = null, loadingList = null;
+  let recentHistory = JSON.parse(localStorage.getItem('recent_pokemon') || '[]');
+
+  function renderRecent() {
+    if (!els.recent || !els.recentList) return;
+    if (recentHistory.length === 0) {
+      els.recent.hidden = true;
+      return;
+    }
+    els.recentList.innerHTML = '';
+    recentHistory.forEach(p => {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'recent-item';
+      btn.style.width = '100%';
+      btn.style.cursor = 'pointer';
+      btn.innerHTML = `<strong>${pretty(p.name)}</strong><span>#${String(p.id).padStart(4,'0')}</span>`;
+      btn.onclick = () => search(p.name, 'recent');
+      els.recentList.appendChild(btn);
+    });
+    els.recent.hidden = false;
+  }
+  
+  function addRecent(p, displayId) {
+    recentHistory = recentHistory.filter(x => x.name !== p.name);
+    recentHistory.unshift({ name: p.name, id: displayId });
+    if (recentHistory.length > 5) recentHistory.pop(); // Keep the last 5 searches
+    localStorage.setItem('recent_pokemon', JSON.stringify(recentHistory));
+    renderRecent();
+  }
 
   const currentTheme = localStorage.getItem('theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
   if (currentTheme === 'dark') {
@@ -323,6 +353,7 @@
       els.prev.onclick=()=>navigate(displayId-1);
       els.next.onclick=()=>navigate(displayId+1);
       els.official.onclick=()=>window.open(officialUrl(species.name||pokemon.name),'_blank','noopener');
+      addRecent(pokemon, displayId);
       els.entry.hidden=false;
       els.loading.hidden=true;
       setStatus('Pokédex entry loaded.','success');
@@ -367,5 +398,6 @@
     }
   });
   
+  renderRecent();
   setStatus('Ready. Search for a Pokémon by name or number.','success');
 })();
