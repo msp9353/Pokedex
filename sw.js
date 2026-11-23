@@ -1,4 +1,4 @@
-const CACHE = "pokemon-pokedex-v8";
+const CACHE = "pokemon-pokedex-v9";
 const APP = ["./", "./index.html", "./app.js", "./manifest.json", "./icon.svg"];
 
 self.addEventListener("install", event => {
