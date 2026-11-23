@@ -6,7 +6,7 @@
   const els = {
     search:$('search'), form:$('searchForm'), status:$('status'), pokedex:$('pokedex'), entry:$('entry'), loading:$('loadingCard'),
     number:$('number'), heroName:$('heroName'), genus:$('genus'), classification:$('classification'), art:$('art'), types:$('types'), description:$('description'),
-    height:$('height'), weight:$('weight'), category:$('category'), generation:$('generation'), abilities:$('abilities'), stats:$('stats'),
+    height:$('height'), weight:$('weight'), category:$('category'), generation:$('generation'), abilities:$('abilities'), evs:$('evs'), stats:$('stats'),
     weaknesses:$('weaknesses'), strengths:$('strengths'), evolution:$('evolution'), prev:$('prevButton'), next:$('nextButton'), official:$('officialButton'),
     formPickerWrap:$('formPickerWrap'), formSelector:$('formSelector'), themeToggle:$('themeToggle'),
     recent:$('recent'), recentList:$('recentList')
@@ -215,6 +215,21 @@
   }
   function renderTypes(types){els.types.innerHTML='';(types||[]).forEach(t=>{const name=t?.type?.name;if(!name)return;const s=document.createElement('span');s.className='type';s.textContent=name;s.style.background=typeColors[name]||'#777';els.types.appendChild(s)})}
   function renderStats(stats){els.stats.innerHTML='';(stats||[]).forEach(s=>{const statName=s?.stat?.name;if(!statName)return;const row=document.createElement('div');row.className='stat';const name=document.createElement('div');name.className='stat-name';name.textContent=statLabels[statName]||pretty(statName);const val=document.createElement('div');val.className='stat-value';val.textContent=s.base_stat??'—';const wrap=document.createElement('div');wrap.className='bar';const bar=document.createElement('i');bar.style.width=Math.min(100,(s.base_stat||0)/180*100)+'%';wrap.appendChild(bar);row.append(name,val,wrap);els.stats.appendChild(row)})}
+  function renderEvs(stats){
+    els.evs.innerHTML='';
+    const yields=(stats||[]).filter(s=>(s.effort||0)>0);
+    if(!yields.length){
+      els.evs.innerHTML='<div class="ability">None</div>';
+      return;
+    }
+    yields.forEach(s=>{
+      const x=document.createElement('div');
+      x.className='ability';
+      const label=statLabels[s.stat.name]||pretty(s.stat.name);
+      x.innerHTML=`<strong>+${s.effort}</strong> ${label}`;
+      els.evs.appendChild(x);
+    });
+  }
   function renderMatchups(details) {
     // 1. Calculate Defensive Weaknesses (Damage Taken)
     const mult = {};
@@ -344,6 +359,7 @@
         x.innerHTML=`${pretty(name)}${a.is_hidden?' <small>(Hidden)</small>':''}`;
         els.abilities.appendChild(x);
       });
+      renderEvs(pokemon.stats);
       renderStats(pokemon.stats);
       renderMatchups(typeDetails);
       renderEvolution(chain);
